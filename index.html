@@ -104,6 +104,16 @@ table.g{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fi
 table.g th,table.g td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
   padding:4px 7px;text-align:left;vertical-align:top;overflow:hidden;white-space:nowrap;
   text-overflow:ellipsis;position:relative;background:var(--surface)}
+/* the observation is the one long field — let it wrap instead of running off the page */
+table.g td.c-description{white-space:normal;text-overflow:clip;font-size:11.5px;
+  line-height:1.45;word-break:break-word;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  unicode-bidi:plaintext}
+table.g td.c-remark{white-space:normal;font-size:11.5px;line-height:1.45;
+  word-break:break-word;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  unicode-bidi:plaintext}
+table.g td.c-area,table.g td.c-station,table.g td.c-category,
+table.g td.c-sub_discipline{unicode-bidi:plaintext}
 table.g thead th{position:sticky;top:0;background:var(--surface2);font-weight:600;font-size:11px;
   color:var(--ink2);z-index:4;user-select:none;cursor:pointer}
 table.g thead th.drag{opacity:.4}
@@ -955,7 +965,7 @@ const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
 
 /* ---------------- state ---------------- */
 let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
-let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:24};
+let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:48};
 let NOTIFS=[], ACTS=[];
 const today=new Date().toISOString().slice(0,10);
 
@@ -1213,7 +1223,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v5';
+const BUILD='SNAG 2026-08-16 · v6';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1364,7 +1374,7 @@ function currentPrefs(){
 }
 async function savePrefs(){
   const p=currentPrefs();
-  try{ localStorage.setItem('ab-prefs',JSON.stringify(p)); }catch(e){}
+  try{ localStorage.setItem('snag-prefs',JSON.stringify(p)); }catch(e){}
   if(!LIVE||!USER)return;
   clearTimeout(_prefTimer);
   _prefTimer=setTimeout(async()=>{
@@ -1375,6 +1385,10 @@ async function savePrefs(){
 }
 function applyPrefs(p){
   if(!p)return;
+  /* a layout saved by another tracker names columns this app does not have —
+     take it only if it actually describes this register */
+  const mine=new Set(COLS.map(c=>c.k));
+  if(p.order&&!p.order.every(k=>mine.has(k))){ p={theme:p.theme}; }
   if(p.theme)document.documentElement.dataset.theme=(p.theme==='dark')?'dark':'';
   if(p.order)PREFS.order=COLS.map(c=>c.k).sort((a,b)=>{
     const ia=p.order.indexOf(a),ib=p.order.indexOf(b);
@@ -1385,7 +1399,7 @@ function applyPrefs(p){
 }
 function loadPrefs(fromAccount){
   let p=null;
-  try{ p=JSON.parse(fromAccount||localStorage.getItem('ab-prefs')||'null'); }catch(e){}
+  try{ p=JSON.parse(fromAccount||localStorage.getItem('snag-prefs')||'null'); }catch(e){}
   applyPrefs(p);
 }
 
@@ -1457,8 +1471,8 @@ function renderDock(){
 }
 function dockStatus(){
   const s=stats();
-  return (LIVE?'● live':'● snapshot, read-only')+' · '+s.t+' documents · '+
-    s.sub+' submitted · '+s.ur+' under review'+(USER?' · '+esc(USER.name):'')+' · build '+BUILD;
+  return (LIVE?'● live':'● snapshot, read-only')+' · '+s.t+' snags · '+
+    s.open+' open · '+s.pct+'% closed'+(USER?' · '+esc(USER.name):'')+' · build '+BUILD;
 }
 let _drag=null;
 function startDrag(e,w){
@@ -1508,7 +1522,7 @@ window.addEventListener('resize',()=>{ [...WINS.values()].forEach(applyRect); ch
 let GRID=null; const PICKED=new Set();   /* {win, rows, sel:{r1,c1,r2,c2}, cur:{r,c}, sort:{k,dir}, filters} */
 
 function openRegister(){
-  const w=createWindow('reg','Register','as-built documents');
+  const w=createWindow('reg','Register','NWC handover snags');
   GRID={win:w, sort:{k:'snag_no',dir:1}, q:'', fd:'', fs:'', fx:'', fp:'', fg:'', fv:'',
         sel:null, cur:{r:0,c:0}, editing:null};
   renderGrid();
@@ -1587,10 +1601,10 @@ function renderGrid(){
       `<th data-c="${i}" data-k="${c.k}" draggable="${canEdit()}" style="width:${colW(c)}px;min-width:${colW(c)}px">${
         esc(c.t)}${GRID.sort.k===c.k?(GRID.sort.dir>0?' ▲':' ▼'):''}<span class="cr" data-rz="${c.k}"></span></th>`).join('')}</tr></thead>`;
   const body=`<tbody>${rows.map((r,ri)=>
-    `<tr data-r="${ri}" data-id="${r.id}" class="${r.ref?'':'dim'}" style="height:${PREFS.rowh}px">
+    `<tr data-r="${ri}" data-id="${r.id}" style="height:${PREFS.rowh}px">
       <th data-rh="${ri}"><input type="checkbox" class="rowchk" data-k="${r.id}"${
         PICKED.has(r.id)?' checked':''}><span class="rn">${ri+1}</span><span class="rr"></span></th>${
-      cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="${c.cls||''}">${cellText(r,c)}</td>`).join('')}
+      cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="c-${c.k} ${c.cls||''}">${cellText(r,c)}</td>`).join('')}
     </tr>`).join('')}</tbody>`;
   w.body.innerHTML=tools+`<div class="gwrap" id="gwrap"><table class="g">${head}${body}</table></div>`;
   document.getElementById('gcount').innerHTML=rows.length+' of '+AB.length+
@@ -2826,7 +2840,7 @@ function toggleTheme(){
 function signOut(msg){
   TOKEN=null; USER=null;
   if(document.getElementById('lname'))loadDirectory();
-  try{localStorage.removeItem('ab-session');}catch(e){}
+  try{localStorage.removeItem('snag-session');}catch(e){}
   [...WINS.keys()].forEach(closeWin);
   document.body.classList.remove('mobile');
   document.getElementById('login').classList.add('on');
@@ -2844,7 +2858,7 @@ async function loadDirectory(){
     if(!Array.isArray(DIRECTORY)||!DIRECTORY.length)throw new Error('empty');
     sel.innerHTML='<option value="">Choose your name…</option>'+
       DIRECTORY.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.ready?'':' — no account yet'}</option>`).join('');
-    let last=null; try{last=localStorage.getItem('ab-who');}catch(e){}
+    let last=null; try{last=localStorage.getItem('snag-who');}catch(e){}
     if(last!==null&&DIRECTORY[last])sel.value=last;
     onPickName();
   }catch(e){ useEmailField(true); }
@@ -2889,9 +2903,9 @@ async function doLogin(){
       return; }
     USER={id:s.user.id,email:s.user.email,name:who[0].name||s.user.email,role:who[0].role};
     if(who[0].prefs)loadPrefs(who[0].prefs);
-    try{localStorage.setItem('ab-session',JSON.stringify(
+    try{localStorage.setItem('snag-session',JSON.stringify(
       {t:s.access_token,r:s.refresh_token,exp:Date.now()+(s.expires_in||3600)*1000}));
-      const i=document.getElementById('lname').value; if(i!=='')localStorage.setItem('ab-who',i);}catch(e){}
+      const i=document.getElementById('lname').value; if(i!=='')localStorage.setItem('snag-who',i);}catch(e){}
     await loadData();
     startApp();
   }catch(e){
@@ -2900,7 +2914,7 @@ async function doLogin(){
   }finally{ btn.disabled=false; btn.textContent='Sign in'; }
 }
 async function resumeSession(){
-  let s=null; try{ s=JSON.parse(localStorage.getItem('ab-session')||'null'); }catch(e){}
+  let s=null; try{ s=JSON.parse(localStorage.getItem('snag-session')||'null'); }catch(e){}
   if(!s||!s.r)return false;
   try{
     const n=(s.exp&&s.exp>Date.now()+60000)?{access_token:s.t,refresh_token:s.r,expires_in:(s.exp-Date.now())/1000}
@@ -2911,10 +2925,10 @@ async function resumeSession(){
     if(!me.length){TOKEN=null;return false;}
     USER={id:me[0].user_id,email:me[0].email,name:me[0].name||me[0].email,role:me[0].role};
     if(me[0].prefs)loadPrefs(me[0].prefs);
-    try{localStorage.setItem('ab-session',JSON.stringify(
+    try{localStorage.setItem('snag-session',JSON.stringify(
       {t:n.access_token,r:n.refresh_token||s.r,exp:Date.now()+(n.expires_in||3600)*1000}));}catch(e){}
     return true;
-  }catch(e){ TOKEN=null; try{localStorage.removeItem('ab-session');}catch(_){} return false; }
+  }catch(e){ TOKEN=null; try{localStorage.removeItem('snag-session');}catch(_){} return false; }
 }
 async function resetPassword(){
   const email=loginEmail();
@@ -2995,7 +3009,7 @@ function _oldHistoryHTML(r){
                  list.filter(c=>c.turnaround!=null).length)+' days':''}</div>`;
 }
 async function boot(){
-  try{ if(localStorage.getItem('ab-theme')==='dark')document.documentElement.dataset.theme='dark'; }catch(e){}
+  try{ if(localStorage.getItem('snag-theme')==='dark')document.documentElement.dataset.theme='dark'; }catch(e){}
   loadPrefs();   /* whatever this browser last had, so there is no flash of the wrong theme */
   const ok=await resumeSession();
   if(ok){
