@@ -112,13 +112,13 @@ table.g th,table.g td{border-right:1px solid var(--grid);border-bottom:1px solid
 /* the observation is the one long field — let it wrap instead of running off the page */
 table.g td.c-description{white-space:normal;text-overflow:clip;
   font-size:11.5px;line-height:1.5;word-break:break-word;overflow-wrap:anywhere;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  display:-webkit-box;-webkit-line-clamp:var(--rowlines);-webkit-box-orient:vertical;
   unicode-bidi:plaintext}
 table.g td.c-area,table.g td.c-station,table.g td.c-category,
 table.g td.c-sub_discipline,table.g td.c-hcis{unicode-bidi:plaintext}
 /* quieter rules, banded rows, and everything sitting on one baseline */
-:root{--rowmin:34px}
-table.g tbody tr{min-height:var(--rowmin)}
+:root{--rowh:46px;--rowlines:2}
+table.g tbody td,table.g tbody th{height:var(--rowh)}
 table.g tbody td{border-right:none;vertical-align:middle;padding:6px 9px;
   color:var(--ink2)}
 table.g tbody td.c-snag_no,table.g tbody td.c-description{color:var(--ink)}
@@ -129,10 +129,12 @@ table.g td.c-status{font-weight:600}
 table.g thead th{position:sticky;top:0;background:var(--surface2);font-weight:600;font-size:11px;
   color:var(--ink2);z-index:4;user-select:none;cursor:pointer}
 table.g thead th.drag{opacity:.4}
-table.g th .cr{position:absolute;top:0;right:-3px;width:7px;height:100%;cursor:col-resize;z-index:5}
+table.g th .cr{position:absolute;top:0;right:-4px;width:9px;height:100%;cursor:col-resize;z-index:5}
+table.g th .cr:hover{background:var(--accent);opacity:.5}
+table.g tbody th .rr:hover{background:var(--accent);opacity:.5}
 table.g tbody th{position:sticky;left:0;z-index:3;background:var(--surface2);text-align:right;
   color:var(--muted);font-weight:500;font-size:11px;width:44px;cursor:pointer}
-table.g tbody th .rr{position:absolute;left:0;bottom:-3px;height:7px;width:100%;cursor:row-resize}
+table.g tbody th .rr{position:absolute;left:0;bottom:-4px;height:9px;width:100%;cursor:row-resize;z-index:4}
 table.g thead th.corner{left:0;z-index:6;width:44px}
 /* the first column travels with the row numbers */
 table.g thead th.stick1{position:sticky;left:44px;z-index:5}
@@ -983,7 +985,7 @@ const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
 
 /* ---------------- state ---------------- */
 let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
-let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:34};
+let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46};
 let NOTIFS=[], ACTS=[];
 const today=new Date().toISOString().slice(0,10);
 
@@ -1251,7 +1253,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v10';
+const BUILD='SNAG 2026-08-16 · v11';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1394,6 +1396,13 @@ async function setCell(row,k,val,silent){
 
 /* ---------------- column prefs ---------------- */
 function visCols(){ return PREFS.order.map(k=>COLBY[k]).filter(c=>c&&!PREFS.hidden.includes(c.k)); }
+function applyRowSize(){
+  const h=Math.max(22,Math.min(200,PREFS.rowh||46));
+  const lines=Math.max(1,Math.floor((h-12)/17));
+  const st=document.documentElement.style;
+  st.setProperty('--rowh',h+'px');
+  st.setProperty('--rowlines',lines);
+}
 function colW(c){ return PREFS.w[c.k]||c.w; }
 let _prefTimer=null;
 function currentPrefs(){
@@ -1647,6 +1656,7 @@ function renderGrid(){
     </tr>`).join('')}</tbody>`;
   w.body.classList.add('gridwin');
   w.body.innerHTML=tools+`<div class="gwrap" id="gwrap"><table class="g">${head}${body}</table></div>`;
+  applyRowSize();
   document.getElementById('gcount').innerHTML=rows.length+' of '+AB.length+
     (PICKED.size?` · <b>${PICKED.size} ticked</b> <button class="lnk" id="gclr">clear</button>`:'');
   wireGrid();
@@ -1697,22 +1707,47 @@ function wireGrid(){
     cr.addEventListener('pointerdown',e=>{
       e.stopPropagation();e.preventDefault();
       const k=cr.dataset.rz, x0=e.clientX, w0=colW(COLBY[k]);
-      const mv=ev=>{PREFS.w[k]=Math.max(46,w0+(ev.clientX-x0));
+      const mv=ev=>{PREFS.w[k]=Math.round(Math.max(46,w0+(ev.clientX-x0)));
         th.style.width=th.style.minWidth=PREFS.w[k]+'px';};
-      const up=()=>{document.removeEventListener('pointermove',mv);savePrefs();renderGrid();};
+      const up=()=>{document.removeEventListener('pointermove',mv);
+        document.body.style.cursor='';savePrefs();renderGrid();};
+      document.body.style.cursor='col-resize';
       document.addEventListener('pointermove',mv);
       document.addEventListener('pointerup',up,{once:true});});
+    /* double-click the edge to fit the column to what is in it */
+    cr.addEventListener('dblclick',e=>{
+      e.stopPropagation();e.preventDefault();
+      const k=cr.dataset.rz, c=COLBY[k];
+      const probe=document.createElement('span');
+      probe.style.cssText='position:absolute;visibility:hidden;white-space:nowrap;'+
+        'font:12px '+getComputedStyle(document.body).fontFamily;
+      document.body.appendChild(probe);
+      const measure=(txt,pad)=>{
+        probe.textContent=txt;
+        /* offsetWidth is 0 in some contexts — fall back to the character count */
+        return Math.max(probe.offsetWidth, txt.length*6.6)+pad;
+      };
+      let wid=measure(c.t,36);
+      GRID.rows.slice(0,400).forEach(r=>{
+        wid=Math.max(wid, Math.min(measure(String(r[k]??''),24), 520));});
+      probe.remove();
+      PREFS.w[k]=Math.round(Math.max(46,wid)); savePrefs(); renderGrid();
+      toast(c.t+' fitted to its contents');});
   });
   /* row height */
   tbl.querySelectorAll('tbody th .rr').forEach(rr=>{
     rr.addEventListener('pointerdown',e=>{
       e.stopPropagation();e.preventDefault();
-      const y0=e.clientY,h0=PREFS.rowh;
-      const mv=ev=>{PREFS.rowh=Math.max(22,Math.min(90,h0+(ev.clientY-y0)));
-        document.documentElement.style.setProperty('--rowmin',PREFS.rowh+'px');};
-      const up=()=>{document.removeEventListener('pointermove',mv);savePrefs();};
+      const y0=e.clientY,h0=PREFS.rowh||46;
+      document.body.style.cursor='ns-resize';
+      const mv=ev=>{PREFS.rowh=Math.max(22,Math.min(160,h0+(ev.clientY-y0)));applyRowSize();};
+      const up=()=>{document.removeEventListener('pointermove',mv);
+        document.body.style.cursor='';savePrefs();};
       document.addEventListener('pointermove',mv);
       document.addEventListener('pointerup',up,{once:true});});
+    rr.addEventListener('dblclick',e=>{
+      e.stopPropagation();e.preventDefault();
+      PREFS.rowh=46; applyRowSize(); savePrefs(); toast('Row height reset');});
   });
   /* row header selects the whole row */
   tbl.querySelectorAll('tbody th[data-rh]').forEach(th=>{
