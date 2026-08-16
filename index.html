@@ -1059,7 +1059,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v15';
+const BUILD='SNAG 2026-08-16 · v16';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -1842,19 +1842,32 @@ function wireGrid(){
 
   /* cell selection */
   let dragging=false;
+  let downAt=null;
   tbl.addEventListener('pointerdown',e=>{
+    /* an open editor owns its own clicks — stealing focus here was closing
+       the status dropdown the instant it was pressed */
+    if(e.target.closest('.cellin'))return;
     const td=e.target.closest('td[data-c]'); if(!td)return;
     const r=+td.dataset.r,c=+td.dataset.c;
     if(e.shiftKey&&GRID.sel){GRID.sel={...GRID.sel,r2:r,c2:c};}
     else {GRID.sel={r1:r,c1:c,r2:r,c2:c};GRID.cur={r,c};}
-    dragging=true;paintSel();
+    dragging=true;downAt={r,c,x:e.clientX,y:e.clientY};paintSel();
     wrap.focus();
   });
   tbl.addEventListener('pointerover',e=>{
     if(!dragging)return; const td=e.target.closest('td[data-c]'); if(!td)return;
     GRID.sel={...GRID.sel,r2:+td.dataset.r,c2:+td.dataset.c};paintSel();});
   document.addEventListener('pointerup',()=>{dragging=false;},{once:false});
+  /* one click opens the cell — as long as it was a click and not a drag */
+  tbl.addEventListener('click',e=>{
+    if(e.target.closest('.cellin'))return;
+    const td=e.target.closest('td[data-c]'); if(!td||!downAt)return;
+    if(Math.abs(e.clientX-downAt.x)>4||Math.abs(e.clientY-downAt.y)>4)return;
+    const r=+td.dataset.r,c=+td.dataset.c;
+    if(r!==downAt.r||c!==downAt.c)return;
+    beginEdit(r,c);});
   tbl.addEventListener('dblclick',e=>{
+    if(e.target.closest('.cellin'))return;
     const td=e.target.closest('td[data-c]'); if(td)beginEdit(+td.dataset.r,+td.dataset.c);});
   wrap.tabIndex=0;
   wrap.addEventListener('keydown',gridKey);
@@ -2477,7 +2490,8 @@ function beginEdit(r,c){
   if(col.opts){ el=document.createElement('select');
     el.innerHTML=col.opts().map(o=>`<option${String(cur)===String(o)?' selected':''}>${esc(o)}</option>`).join('');
   }else{ el=document.createElement('input'); el.type=col.date?'date':'text'; el.value=cur; }
-  el.className='cellin'; td.appendChild(el); el.focus(); if(el.select)el.select();
+  el.className='cellin'; td.appendChild(el); el.focus();
+  if(el.select&&el.tagName==='INPUT')el.select();
   const done=async(commit)=>{
     if(GRID.editing===null)return; GRID.editing=null;
     const v=el.value;
@@ -2486,7 +2500,15 @@ function beginEdit(r,c){
     else renderGrid();
     const wrap=document.getElementById('gwrap'); if(wrap)wrap.focus();
   };
-  el.addEventListener('blur',()=>done(true));
+  if(el.tagName==='SELECT'){
+    /* opening the native list can blur in some browsers — only the choice,
+       or moving away for good, should end the edit */
+    el.addEventListener('change',()=>done(true));
+    el.addEventListener('blur',()=>setTimeout(()=>{
+      if(GRID.editing&&document.activeElement!==el)done(true); },140));
+  }else{
+    el.addEventListener('blur',()=>done(true));
+  }
   el.addEventListener('keydown',ev=>{
     ev.stopPropagation();
     if(ev.key==='Enter'){ev.preventDefault();done(true);}
