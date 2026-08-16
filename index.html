@@ -115,7 +115,7 @@ table.g td.c-description{white-space:normal;text-overflow:clip;
   display:-webkit-box;-webkit-line-clamp:var(--rowlines);-webkit-box-orient:vertical;
   unicode-bidi:plaintext}
 table.g td.c-area,table.g td.c-station,table.g td.c-category,
-table.g td.c-sub_discipline,table.g td.c-hcis{unicode-bidi:plaintext}
+table.g td.c-hcis{unicode-bidi:plaintext}
 /* quieter rules, banded rows, and everything sitting on one baseline */
 :root{--rowh:46px;--rowlines:2}
 table.g tbody td,table.g tbody th{height:var(--rowh)}
@@ -878,6 +878,45 @@ table.ptbl input{width:100%;border:1px solid var(--line);border-radius:7px;paddi
 .wopt span{font-size:11.5px;color:var(--ink3)}
 .mplan{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
 .mplan select{width:100%}
+
+/* ---- dashboard visuals ---- */
+.cwrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+.donut{width:150px;height:150px;flex:none}
+.gauge{width:180px;height:118px;flex:none}
+.dbig{font-size:26px;font-weight:700;fill:var(--ink)}
+.dsml{font-size:11px;fill:var(--ink3)}
+.clegend{flex:1;min-width:170px;display:flex;flex-direction:column;gap:4px}
+.lrow{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;
+  border:1px solid transparent;background:none;font:inherit;color:var(--ink2);
+  cursor:pointer;text-align:left;width:100%}
+.lrow:hover{background:var(--chip);border-color:var(--line)}
+.lrow.flat{cursor:default}
+.lrow.flat:hover{background:none;border-color:transparent}
+.lrow i{width:11px;height:11px;border-radius:3px;flex:none}
+.lrow span{flex:1;font-size:12.5px}
+.lrow b{font-size:14px;color:var(--ink);font-variant-numeric:tabular-nums}
+.cols{width:100%;height:210px}
+.colg rect{cursor:pointer;transition:opacity .15s}
+.colg:hover rect{opacity:1}
+.cval{font-size:11px;font-weight:700;fill:var(--ink2)}
+.clab{font-size:12px;font-weight:650;fill:var(--ink)}
+.csub{font-size:10px;fill:var(--ink3)}
+table.heat{width:100%;border-collapse:collapse;font-size:12px}
+table.heat th{font-weight:600;color:var(--ink3);font-size:11px;padding:5px 7px;text-align:center}
+table.heat tbody th{text-align:left;color:var(--ink2);max-width:150px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+table.heat td{text-align:center;padding:7px 6px;border-radius:5px;font-weight:650;
+  font-variant-numeric:tabular-nums;cursor:pointer}
+table.heat td:hover{outline:2px solid var(--accent);outline-offset:-2px}
+table.heat .tot{color:var(--ink3);font-weight:600;cursor:default}
+table.heat .tot:hover{outline:none}
+.hbars{display:flex;flex-direction:column;gap:7px}
+.hb{display:grid;grid-template-columns:130px 1fr 34px;align-items:center;gap:9px;cursor:pointer}
+.hb:hover .hbl{color:var(--ink)}
+.hbl{font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbt{height:15px;background:var(--chip);border-radius:5px;overflow:hidden}
+.hbt i{display:block;height:100%;border-radius:5px;transition:width .4s ease}
+.hbn{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -973,7 +1012,6 @@ const COLS=[
   {k:'discipline',     t:'Discipline',     w:130, opts:()=>listOf('discipline')},
   {k:'status',         t:'Status',         w:80,  cls:'ctr', opts:()=>STATUSES, pill:1},
   {k:'area',           t:'Area / system',  w:120, opts:()=>listOf('area')},
-  {k:'sub_discipline', t:'Sub-discipline', w:130, opts:()=>listOf('sub_discipline')},
   {k:'category',       t:'Category',       w:150, opts:()=>listOf('category')},
   {k:'hcis',           t:'HCIS',           w:110, opts:()=>listOf('hcis')},
   {k:'assignee',       t:'Responsible',    w:110},
@@ -986,14 +1024,20 @@ const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
 /* ---------------- state ---------------- */
 let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
-let NOTIFS=[], ACTS=[];
+let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
+const BUILD='SNAG 2026-08-16 · v13';
+const SNAPSHOT=[];
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
+const canAdmin=()=>LIVE&&USER&&USER.role==='admin';
+const nowTs=()=>new Date().toISOString();
+const days=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
 
 
 /* ---------- the snag list as issued, 16 Aug 2026 ----------
    Held in the page so the register can be seeded into the database in one
    step; after that the database is the record and this is never read again. */
-const SNAG_SEED={"dims":{},"rows":[]};  /* loaded into the database 16 Aug 2026 */
 const initials=n=>(n||'?').split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase();
 const ago=ts=>{
   if(!ts)return '';
@@ -1082,6 +1126,38 @@ function selCells(){
       if(GRID.rows[r]&&cs[c])out.push({row:GRID.rows[r],col:cs[c],r,c});
   return out;
 }
+async function postComment(id,body){
+  if(!body.trim())return;
+  const row={snag_id:id,body:body.trim(),author_id:USER.id,
+    author_name:USER.name||USER.email,author_email:USER.email};
+  const r=await api('snag_comments',{method:'POST',
+    headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
+  (CMTS[id]=CMTS[id]||[]).push(r[0]);
+  const document=AB.find(x=>x.id===id)||{id,ref:''};
+  const told=await notifyMentions(body.trim(),document,r[0].id);
+  if(told.length)toast('Notified '+told.map(m=>m.name.split(' ')[0]).join(', '));
+  CCOUNT[id]=(CCOUNT[id]||0)+1;
+  await logAct('comment',AB.find(x=>x.id===id)||{id},'discussion','',body.trim().slice(0,60));
+  if(GRID&&GRID.win&&WINS.has(GRID.win.id))renderGrid();
+}
+
+async function removeComment(id,cid){
+  await api('snag_comments?id=eq.'+cid,{method:'PATCH',body:JSON.stringify({deleted_at:nowTs()})});
+  CMTS[id]=(CMTS[id]||[]).filter(c=>c.id!==cid);
+  CCOUNT[id]=Math.max(0,(CCOUNT[id]||1)-1);
+  if(GRID&&GRID.win&&WINS.has(GRID.win.id))renderGrid();
+}
+
+function renderMentions(text){
+  let out=esc(text);
+  MEMBERS.forEach(m=>{
+    const n=(m.name||'').trim(); if(!n)return;
+    out=out.replace(new RegExp('@'+n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'ig'),
+      '<span class="mention">@'+esc(n)+'</span>');
+  });
+  return out;
+}
+
 async function loadComments(id){
   try{
     const list=await api('snag_comments?snag_id=eq.'+id+'&deleted_at=is.null&order=created_at.asc');
@@ -1218,52 +1294,6 @@ async function loadCommentCounts(){
     CCOUNT={}; rows.forEach(x=>{ CCOUNT[x.snag_id]=(CCOUNT[x.snag_id]||0)+1; });
   }catch(e){ CCOUNT={}; }
 }
-function seedRows(){
-  const F=['project','station','facility','area','discipline','sub_discipline',
-           'category','hcis','status'];
-  const D=SNAG_SEED.dims, KEYS=['project','station','facility','area','discipline',
-           'subDiscipline','category','hcis','status'];
-  return SNAG_SEED.rows.map(line=>{
-    const p=line.split('|');
-    const o={snag_no:p[0], description:p.slice(10).join('|')};
-    F.forEach((f,i)=>{ o[f]=D[KEYS[i]][+p[i+1]]||''; });
-    if(o.status!=='Closed')o.status='Open';   // a blank status means still open
-    return o;
-  });
-}
-async function seedDatabase(){
-  if(!canEdit())return toast('Only an editor can load the register');
-  const rows=seedRows();
-  msgBox('Load the snag register?','',
-    `<b>${rows.length} snags</b> from the categorisation sheet of 16 August 2026
-     will be written to the database.<br><br>
-     Do this once. If the register already holds snags, add them instead through
-     Import so nothing is duplicated.`,
-    [['Cancel',null,''],['Load them',async()=>{
-      let done=0;
-      try{
-        for(let i=0;i<rows.length;i+=100){
-          await api('snag_items',{method:'POST',body:JSON.stringify(rows.slice(i,i+100))});
-          done+=Math.min(100,rows.length-i);
-          toast('Loading… '+done+' of '+rows.length);
-        }
-        await loadData(); refresh();
-        toast(done+' snags loaded');
-      }catch(e){ toast('Stopped after '+done+' — '+(e.message||'error')); }
-    },'primary']]);
-}
-
-const BUILD='SNAG 2026-08-16 · v12';
-const SNAPSHOT=[];
-
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const days=(a,b)=>Math.round((new Date(b)-new Date(a))/864e5);
-
-
-const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
-const canAdmin=()=>LIVE&&USER&&USER.role==='admin';
-const nowTs=()=>new Date().toISOString();
-
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');
   clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove('on'),2300);}
 
@@ -1575,7 +1605,7 @@ function openRegister(){
 function gridRows(){
   const q=GRID.q.toLowerCase();
   let rows=AB.filter(r=>{
-    if(q&&![r.snag_no,r.description,r.station,r.area,r.discipline,r.sub_discipline,
+    if(q&&![r.snag_no,r.description,r.station,r.area,r.discipline,
             r.category,r.hcis,r.assignee]
       .some(v=>String(v||'').toLowerCase().includes(q)))return false;
     if(GRID.fg&&GRID.fv&&(r[GRID.fg]||'(not set)')!==GRID.fv)return false;
@@ -1946,6 +1976,144 @@ function kpiHTML(){
       p.open?'#2a78d6':'#0f9d58',p.t?p.open/p.t*100:0)).join('');
 }
 /* ---------- ball in court ---------- */
+/* ============================================================
+   Dashboard visuals — a different shape for each question.
+   All hand-drawn SVG, all click-through to the filtered register.
+   ============================================================ */
+const C_OPEN='#d64545', C_DONE='#0f9d58', C_WARN='#f0b429', C_INFO='#2a78d6';
+const PALETTE=['#2a78d6','#0f9d58','#e8834a','#7c5cd6','#d64545','#12a4a4','#f0b429','#8c9aa8'];
+
+/* ---------- a ring: how much of the whole is closed ---------- */
+function donutChart(){
+  const s=stats(), r=54, c=2*Math.PI*r, done=s.t?s.closed/s.t:0;
+  return `<div class="cwrap">
+    <svg viewBox="0 0 150 150" class="donut" role="img">
+      <circle cx="75" cy="75" r="${r}" fill="none" stroke="var(--chip)" stroke-width="18"/>
+      <circle cx="75" cy="75" r="${r}" fill="none" stroke="${C_DONE}" stroke-width="18"
+        stroke-dasharray="${(c*done).toFixed(1)} ${c.toFixed(1)}"
+        stroke-linecap="round" transform="rotate(-90 75 75)"
+        style="transition:stroke-dasharray .6s ease"/>
+      <text x="75" y="70" text-anchor="middle" class="dbig">${s.pct}%</text>
+      <text x="75" y="90" text-anchor="middle" class="dsml">closed</text>
+    </svg>
+    <div class="clegend">
+      <button class="lrow" data-fs="Closed"><i style="background:${C_DONE}"></i>
+        <span>Closed</span><b>${s.closed}</b></button>
+      <button class="lrow" data-fs="Open"><i style="background:var(--chip);border:1px solid var(--line)"></i>
+        <span>Still open</span><b>${s.open}</b></button>
+      <div class="lrow flat"><i style="background:transparent"></i>
+        <span>Total snags</span><b>${s.t}</b></div>
+    </div></div>`;
+}
+
+/* ---------- columns: where the open work sits, project by project ---------- */
+function projectColumns(){
+  const s=stats();
+  if(!s.projects.length)return '<div class="empty">Nothing recorded.</div>';
+  const max=Math.max(...s.projects.map(p=>p.t),1);
+  const W=Math.max(300, s.projects.length*96), H=200, base=H-34, top=16;
+  return `<svg viewBox="0 0 ${W} ${H}" class="cols" preserveAspectRatio="xMidYMid meet">
+    <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line)"/>
+    ${s.projects.map((p,i)=>{
+      const bw=52, x=i*96+((96-bw)/2)+8;
+      const hT=(p.t/max)*(base-top), hO=(p.open/max)*(base-top);
+      const closed=p.t-p.open;
+      return `<g class="colg">
+        <rect x="${x}" y="${base-hT}" width="${bw}" height="${hT}" rx="5"
+          fill="${C_DONE}" opacity=".85" data-fp="${esc(p.p)}" data-fs="Closed">
+          <title>${esc(p.p)} — ${closed} closed</title></rect>
+        <rect x="${x}" y="${base-hO}" width="${bw}" height="${hO}" rx="5"
+          fill="${C_OPEN}" data-fp="${esc(p.p)}" data-fs="Open">
+          <title>${esc(p.p)} — ${p.open} open</title></rect>
+        <text x="${x+bw/2}" y="${base-hT-6}" text-anchor="middle" class="cval">${p.t}</text>
+        <text x="${x+bw/2}" y="${base+15}" text-anchor="middle" class="clab">${esc(p.p)}</text>
+        <text x="${x+bw/2}" y="${base+28}" text-anchor="middle" class="csub">${p.open} open</text>
+      </g>`;}).join('')}
+  </svg>
+  <div class="legend"><span><i class="sw" style="background:${C_OPEN}"></i>Open</span>
+    <span><i class="sw" style="background:${C_DONE}"></i>Closed</span></div>`;
+}
+
+/* ---------- a gauge for the safety items ---------- */
+function hcisGauge(){
+  const s=stats();
+  if(!s.hcisTotal)return '<div class="empty">No HCIS items recorded.</div>';
+  const done=s.hcisTotal-s.hcisOpen, pct=Math.round(done/s.hcisTotal*100);
+  const R=62, cx=90, cy=84, len=Math.PI*R;
+  const arc=(f,col,w)=>`<path d="M ${cx-R} ${cy} A ${R} ${R} 0 0 1 ${cx+R} ${cy}"
+    fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round"
+    stroke-dasharray="${(len*f).toFixed(1)} ${len.toFixed(1)}"/>`;
+  return `<div class="cwrap">
+    <svg viewBox="0 0 180 118" class="gauge">
+      ${arc(1,'var(--chip)',16)}${arc(done/s.hcisTotal,C_WARN,16)}
+      <text x="${cx}" y="${cy-14}" text-anchor="middle" class="dbig">${pct}%</text>
+      <text x="${cx}" y="${cy+4}" text-anchor="middle" class="dsml">cleared</text>
+      <text x="${cx-R}" y="${cy+18}" text-anchor="middle" class="csub">0</text>
+      <text x="${cx+R}" y="${cy+18}" text-anchor="middle" class="csub">${s.hcisTotal}</text>
+    </svg>
+    <div class="clegend">
+      <button class="lrow" data-fx="hcis"><i style="background:${C_WARN}"></i>
+        <span>Still open</span><b>${s.hcisOpen}</b></button>
+      <div class="lrow flat"><i style="background:${C_DONE}"></i>
+        <span>Cleared</span><b>${done}</b></div>
+      <div class="hint" style="padding:2px 4px">safety items needing HCIS sign-off</div>
+    </div></div>`;
+}
+
+/* ---------- a matrix: which discipline is holding which project up ---------- */
+function heatMatrix(){
+  const projects=[...new Set(AB.map(r=>r.project).filter(Boolean))].sort();
+  const discs=[...new Set(AB.map(r=>r.discipline).filter(Boolean))]
+    .sort((a,b)=>AB.filter(r=>r.discipline===b&&isOpen(r)).length-
+                 AB.filter(r=>r.discipline===a&&isOpen(r)).length);
+  if(!projects.length||!discs.length)return '<div class="empty">Nothing recorded.</div>';
+  const cell=(d,p)=>AB.filter(r=>r.discipline===d&&r.project===p&&isOpen(r)).length;
+  const max=Math.max(1,...discs.flatMap(d=>projects.map(p=>cell(d,p))));
+  return `<table class="heat"><thead><tr><th></th>${
+      projects.map(p=>`<th>${esc(p)}</th>`).join('')}<th class="tot">All</th></tr></thead><tbody>
+    ${discs.map(d=>{
+      const rowTot=projects.reduce((t,p)=>t+cell(d,p),0);
+      return `<tr><th title="${esc(d)}">${esc(d)}</th>${projects.map(p=>{
+        const n=cell(d,p), f=n/max;
+        return `<td data-fd="${esc(d)}" data-fp="${esc(p)}" data-fx="open"
+          style="background:${n?`color-mix(in srgb, ${C_OPEN} ${Math.round(12+f*70)}%, transparent)`:'transparent'};
+                 color:${f>0.55?'#fff':'var(--ink)'}"
+          title="${esc(d)} · ${esc(p)} — ${n} open">${n||''}</td>`;}).join('')}
+        <td class="tot">${rowTot}</td></tr>`;}).join('')}
+  </tbody></table>
+  <div class="legend"><span>open snags · darker means more</span>
+    <span class="rt">tap a square to see them</span></div>`;
+}
+
+/* ---------- the categories that keep coming back ---------- */
+function categoryBars(){
+  const rows=groupRows('category').filter(r=>r.open>0).slice(0,8);
+  if(!rows.length)return '<div class="empty">Nothing open.</div>';
+  const max=Math.max(...rows.map(r=>r.open));
+  return `<div class="hbars">${rows.map((r,i)=>`
+    <div class="hb" data-g="category" data-v="${esc(r.k)}" data-fx="open">
+      <div class="hbl" title="${esc(r.k)}">${esc(r.k)}</div>
+      <div class="hbt"><i style="width:${r.open/max*100}%;background:${PALETTE[i%PALETTE.length]}"></i></div>
+      <div class="hbn">${r.open}</div></div>`).join('')}</div>
+  <div class="legend"><span>open snags by category · top ${rows.length}</span></div>`;
+}
+
+function wireCharts2(root){
+  const go=el=>{
+    const f={};
+    if(el.dataset.fp)f.fp=el.dataset.fp;
+    if(el.dataset.fd)f.fd=el.dataset.fd;
+    if(el.dataset.fs)f.fs=el.dataset.fs;
+    if(el.dataset.fx)f.fx=el.dataset.fx;
+    if(el.dataset.g&&el.dataset.v){f.fg=el.dataset.g;f.fv=el.dataset.v;}
+    drillTo(f);
+  };
+  root.querySelectorAll('[data-fp],[data-fd],[data-fs],[data-fx],[data-g]').forEach(el=>{
+    el.style.cursor='pointer';
+    el.addEventListener('click',e=>{e.stopPropagation();go(el);});
+  });
+}
+
 function breakdown(key,label){
   const rows=groupRows(key);
   if(!rows.length)return '<div class="empty">Nothing recorded.</div>';
@@ -2014,15 +2182,19 @@ function renderDash(){
   const w=[...WINS.values()].find(x=>x.kind==='dash'); if(!w)return;
   w.body.innerHTML=`<div class="dash">
     <div class="kpis">${kpiHTML()}</div>
-    <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
     <div class="g2">
-      <div class="panel"><h3>By discipline</h3>${breakdown('discipline')}</div>
-      <div class="panel"><h3>By category</h3>${breakdown('category')}</div>
+      <div class="panel"><h3>Where it stands</h3>${donutChart()}</div>
+      <div class="panel"><h3>HCIS safety items</h3>${hcisGauge()}</div>
     </div>
-    <div class="panel"><h3>By sub-discipline</h3>${breakdown('sub_discipline')}</div>
-    <div class="panel"><h3>HCIS safety items</h3>${breakdown('hcis')}</div>
+    <div class="panel"><h3>Each project, open against closed</h3>${projectColumns()}</div>
+    <div class="panel"><h3>Discipline against project — open snags</h3>${heatMatrix()}</div>
+    <div class="g2">
+      <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
+      <div class="panel"><h3>What keeps coming up</h3>${categoryBars()}</div>
+    </div>
     <div class="panel"><h3>Open and past target</h3>${overdueSnags(20)}</div></div>`;
   wireBreak(w.body);
+  wireCharts2(w.body);
   w.body.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{
     const r=AB.find(x=>x.id===+el.dataset.go); if(r)openDiscussion(r);});
 }
@@ -2717,10 +2889,12 @@ function mobDash(){
       ${t('Unassigned',st.unassigned,'nobody named','#8c9aa8',st.open?st.unassigned/st.open*100:0)}
       ${st.projects.map(p=>t(p.p,p.open,p.open?'open of '+p.t:'all '+p.t+' closed',
         p.open?'#2a78d6':'#0f9d58',p.t?p.open/p.t*100:0)).join('')}</div>
+    <div class="panel"><h3>Where it stands</h3>${donutChart()}</div>
+    <div class="panel"><h3>Each project</h3>${projectColumns()}</div>
+    <div class="panel"><h3>HCIS safety items</h3>${hcisGauge()}</div>
+    <div class="panel"><h3>Discipline against project</h3>${heatMatrix()}</div>
     <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
-    <div class="panel"><h3>By discipline</h3>${breakdown('discipline')}</div>
-    <div class="panel"><h3>By category</h3>${breakdown('category')}</div>
-    <div class="panel"><h3>HCIS safety items</h3>${breakdown('hcis')}</div>`;
+    <div class="panel"><h3>What keeps coming up</h3>${categoryBars()}</div>`;
 }
 function mobFilters(){
   const F=[['','All',()=>AB.length],
@@ -2858,6 +3032,7 @@ function attachSwipe(el,{onLeft,onRight,leftLabel,rightLabel}){
 
 function wireMob(){
   const b=document.getElementById('mbody');
+  wireBreak(b); wireCharts2(b);
   b.querySelectorAll('[data-mo]').forEach(el=>{
     el.onclick=()=>mobGo('one',+el.dataset.mo);
     if(canEdit()&&MOB.view==='reg')attachSwipe(el,{onRight:()=>{
