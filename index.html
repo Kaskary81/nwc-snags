@@ -1213,7 +1213,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v4';
+const BUILD='SNAG 2026-08-16 · v5';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -2839,7 +2839,7 @@ let DIRECTORY=[];
 async function loadDirectory(){
   const sel=document.getElementById('lname');
   try{
-    DIRECTORY=await fetch(SB_URL+'/rest/v1/lod_signin?order=seq.asc',
+    DIRECTORY=await fetch(SB_URL+'/rest/v1/snag_signin?order=seq.asc',
       {headers:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY}}).then(r=>r.json());
     if(!Array.isArray(DIRECTORY)||!DIRECTORY.length)throw new Error('empty');
     sel.innerHTML='<option value="">Choose your name…</option>'+
@@ -2961,12 +2961,6 @@ function touchSeen(){
   _seenTimer=setInterval(()=>{ if(!document.hidden)write(); },5*60*1000);
 }
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden)touchSeen(); });
-async function _oldLoadRevs(){
-  try{
-    const r=await api('lod_revisions?order=id.asc&limit=5000');
-    REVS={}; r.forEach(x=>{ (REVS[x.docId]=REVS[x.docId]||[]).push(x); });
-  }catch(e){ REVS={}; }
-}
 function revsOf(id){ return REVS[id]||[]; }
 
 /* ---------- log a new submission cycle ---------- */
