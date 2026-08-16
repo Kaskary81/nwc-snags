@@ -88,7 +88,10 @@ button,input,select{font-family:inherit;font-size:inherit}
 .win .wb{border:none;background:none;color:var(--ink2);width:22px;height:22px;border-radius:6px;
   cursor:pointer;font-size:13px;line-height:1;flex:none}
 .win .wb:hover{background:var(--accent-soft);color:var(--ink)}
-.win .wbody{flex:1;overflow:auto;position:relative}
+.win .wbody{flex:1;overflow:auto;position:relative;min-height:0}
+/* the register window owns no scrollbar of its own — the grid does */
+.win .wbody.gridwin{overflow:hidden;display:flex;flex-direction:column}
+.win .wbody.gridwin > .wtools{flex:none}
 .win .wtools{display:flex;gap:6px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--ring);
   flex-wrap:wrap;background:var(--surface);position:sticky;top:0;z-index:6}
 .grip{position:absolute;z-index:5}
@@ -99,8 +102,9 @@ button,input,select{font-family:inherit;font-size:inherit}
   border-radius:12px;display:none;pointer-events:none;z-index:700}
 
 /* ============ grid ============ */
-.gwrap{overflow:auto;height:100%}
-table.g{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed}
+.gwrap{overflow:auto;flex:1;min-height:0;height:auto}
+table.g{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;
+  width:max-content;min-width:100%}
 table.g th,table.g td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
   padding:4px 7px;text-align:left;vertical-align:top;overflow:hidden;white-space:nowrap;
   text-overflow:ellipsis;position:relative;background:var(--surface)}
@@ -1230,7 +1234,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v7';
+const BUILD='SNAG 2026-08-16 · v8';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1624,6 +1628,7 @@ function renderGrid(){
         PICKED.has(r.id)?' checked':''}><span class="rn">${ri+1}</span><span class="rr"></span></th>${
       cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="c-${c.k} ${c.cls||''}">${cellText(r,c)}</td>`).join('')}
     </tr>`).join('')}</tbody>`;
+  w.body.classList.add('gridwin');
   w.body.innerHTML=tools+`<div class="gwrap" id="gwrap"><table class="g">${head}${body}</table></div>`;
   document.getElementById('gcount').innerHTML=rows.length+' of '+AB.length+
     (PICKED.size?` · <b>${PICKED.size} ticked</b> <button class="lnk" id="gclr">clear</button>`:'');
