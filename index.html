@@ -819,6 +819,34 @@ body.mobile .panel h3{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-
 .offbar{background:rgba(240,180,41,.12);border:1px solid rgba(240,180,41,.4);border-radius:12px;
   padding:11px 13px;margin-bottom:12px;font-size:12px;color:var(--m-ink2);line-height:1.5}
 
+
+/* weekly plan */
+.pbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.pbar .sp{flex:1}
+.pphase{font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:20px;
+  background:var(--chip);color:var(--ink2)}
+.pphase.live{background:#0f9d5822;color:#0f9d58}
+.pphase.future{background:#2a78d622;color:#2a78d6}
+.pphase.past{background:var(--chip);color:var(--ink3)}
+.pprog{display:flex;align-items:center;gap:10px}
+.pprog .ptrack{flex:1;height:9px;border-radius:6px;background:var(--chip);overflow:hidden}
+.pprog .ptrack i{display:block;height:100%;background:#0f9d58;border-radius:6px;
+  transition:width .35s ease}
+.pprog span{font-size:12px;color:var(--ink2);font-weight:600;white-space:nowrap}
+table.ptbl{width:100%;border-collapse:collapse;font-size:12.5px}
+table.ptbl th{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);
+  color:var(--ink3);font-weight:650;font-size:11.5px}
+table.ptbl td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.ptbl input{width:100%;border:1px solid var(--line);border-radius:7px;padding:4px 7px;
+  background:var(--card);color:var(--ink);font:inherit}
+.wlist{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto}
+.wopt{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);
+  cursor:pointer;font:inherit;color:var(--ink);text-align:left}
+.wopt:hover{border-color:var(--accent);background:var(--chip)}
+.wopt span{font-size:11.5px;color:var(--ink3)}
+.mplan{padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.mplan select{width:100%}
 </style>
 </head>
 <body>
@@ -826,6 +854,7 @@ body.mobile .panel h3{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-
 <div id="topbar">
   <div class="logo">▦</div>
   <div class="title">Snag Tracker<small id="projsub">NWC handover</small></div>
+  <button class="tbbtn" id="b-plan">Plan</button>
   <button class="tbbtn" id="b-reg">▦ Register</button>
   <button class="tbbtn" id="b-dash">◔ Dashboard</button>
   <button class="tbbtn" id="b-undo" title="Undo (Ctrl+Z)">↶</button>
@@ -906,20 +935,20 @@ const SHORT_DISC={};
 const APPROVED=['Closed'], REJECTED=[];
 const CODES=STATUSES;
 const COLS=[
-  {k:'snag_no',        t:'Snag no.',      w:90,  cls:'mono'},
-  {k:'project',        t:'Project',       w:80,  cls:'ctr', opts:()=>listOf('project')},
-  {k:'station',        t:'Station',       w:150, opts:()=>listOf('station')},
-  {k:'area',           t:'Area / system', w:150, opts:()=>listOf('area')},
-  {k:'discipline',     t:'Discipline',    w:170, opts:()=>listOf('discipline')},
-  {k:'sub_discipline', t:'Sub-discipline',w:170, opts:()=>listOf('sub_discipline')},
-  {k:'category',       t:'Category',      w:180, opts:()=>listOf('category')},
-  {k:'hcis',           t:'HCIS',          w:150, opts:()=>listOf('hcis')},
-  {k:'description',    t:'Observation',   w:420},
-  {k:'status',         t:'Status',        w:96,  cls:'ctr', opts:()=>STATUSES, pill:1},
-  {k:'assignee',       t:'Responsible',   w:140},
-  {k:'target_date',    t:'Target',        w:104, date:1},
-  {k:'closed_date',    t:'Closed on',     w:104, date:1},
-  {k:'remark',         t:'Remark',        w:220}
+  {k:'snag_no',        t:'Snag no.',       w:88,  cls:'mono'},
+  {k:'project',        t:'Project',        w:74,  cls:'ctr', opts:()=>listOf('project')},
+  {k:'station',        t:'Station',        w:150, opts:()=>listOf('station')},
+  {k:'area',           t:'Area / system',  w:145, opts:()=>listOf('area')},
+  {k:'description',    t:'Observation',    w:400},
+  {k:'discipline',     t:'Discipline',     w:160, opts:()=>listOf('discipline')},
+  {k:'sub_discipline', t:'Sub-discipline', w:160, opts:()=>listOf('sub_discipline')},
+  {k:'category',       t:'Category',       w:170, opts:()=>listOf('category')},
+  {k:'hcis',           t:'HCIS',           w:140, opts:()=>listOf('hcis')},
+  {k:'status',         t:'Status',         w:92,  cls:'ctr', opts:()=>STATUSES, pill:1},
+  {k:'assignee',       t:'Responsible',    w:135},
+  {k:'target_date',    t:'Target',         w:104, date:1},
+  {k:'closed_date',    t:'Closed on',      w:104, date:1},
+  {k:'remark',         t:'Remark',         w:200}
 ];
 function listOf(k){ return [...new Set(AB.map(r=>r[k]).filter(Boolean))].sort(); }
 const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
@@ -1548,6 +1577,7 @@ function renderGrid(){
     </select>
     <button class="btn" id="gadd"${canEdit()?'':' disabled'}>Add snag</button>
     <button class="btn" id="gdel"${canEdit()?'':' disabled'}>Delete</button>
+    <button class="btn" id="gplan"${canEdit()?'':' disabled'}>Add to plan</button>
     <button class="btn" id="gtalk">Discussion</button>
     <button class="btn" id="gpdf">Export PDF</button>
     <button class="btn" id="gcols">Columns</button>
@@ -1578,6 +1608,7 @@ function wireGrid(){
   $('gfx').onchange=e=>{GRID.fx=e.target.value;renderGrid();};
   $('gadd').onclick=addRow;
   $('gdel').onclick=deleteSelected;
+  $('gplan').onclick=()=>addPickedToPlan();
   $('gcols').onclick=openCols;
   $('gpdf').onclick=exportPDF;
   const allBox=$('gall');
@@ -1883,6 +1914,7 @@ function renderDash(){
     const r=AB.find(x=>x.id===+el.dataset.go); if(r)openDiscussion(r);});
 }
 function refresh(){ if(GRID&&GRID.win&&WINS.has(GRID.win.id))renderGrid(); renderDash(); renderDock();
+  if([...WINS.values()].some(x=>x.kind==='plan'))drawPlans();
   updateUndoBtns(); updateBell(); if(MOBILE)mobRender(); }
 
 /* ================= excel ================= */
@@ -2065,7 +2097,7 @@ function mobTab(v){
   const b=document.getElementById('mbody');if(b)b.scrollTop=0;mobRender();}
 function mobRender(){
   if(!MOBILE)return;
-  const T={dash:'Overview',reg:'Register',one:'Snag',late:'Overdue',more:'More'};
+  const T={dash:'Overview',reg:'Register',one:'Snag',late:'Overdue',more:'More',plan:'Weekly plan'};
   let ttl=T[MOB.view]||'Snags', sub='NWC handover snags', mono=false;
   if(MOB.view==='one'){const r=AB.find(x=>x.id===MOB.id);
     ttl=r?r.snag_no:'Snag'; sub=r?(r.station||''):''; mono=true;}
@@ -2081,12 +2113,12 @@ function mobRender(){
     late:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     plan:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M9 15l2 2 4-4"/>',
     more:'<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'};
-  const tabs=[['dash','Overview'],['reg','Register'],['late','Overdue'],['more','More']];
+  const tabs=[['dash','Overview'],['reg','Register'],['plan','Plan'],['late','Overdue'],['more','More']];
   document.getElementById('mtabs').innerHTML=tabs.map(([v,l])=>
     `<button class="${MOB.view===v||(v==='reg'&&MOB.view==='one')?'on':''}" data-mt="${v}">
       <svg viewBox="0 0 24 24">${ICON[v]}</svg>${l}</button>`).join('');
   document.getElementById('mtabs').querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>mobTab(b.dataset.mt));
-  const V={dash:mobDash,reg:mobList,one:mobOne,late:mobLate,more:mobMore};
+  const V={dash:mobDash,reg:mobList,one:mobOne,late:mobLate,more:mobMore,plan:mobPlan};
   document.getElementById('mbody').innerHTML=(V[MOB.view]||mobDash)();
   wireMob(); wireCharts(document.getElementById('mbody')); updateBell();
 }
@@ -2224,6 +2256,326 @@ async function clearSel(){
   txBegin('clear '+cells.length+' cell(s)');
   for(const {row,col} of cells) await setCell(row,col.k,'',true);
   txEnd(); renderGrid(); toast(cells.length+' cell(s) cleared');
+}
+
+/* ============================================================
+   Weekly closure plans
+   A week holds the snags the team means to close in that week.
+   An item is done the moment the snag's status turns Closed —
+   nothing separate to tick off.
+   ============================================================ */
+let ASSIGNEES=[], PLANS=[], PITEMS={};
+let PLAN_CUR=null, _planBusy=false;
+const WEEK_DAYS=6;                       /* Sunday to Friday */
+
+const weekStartOf=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+1)%7));
+  return x.toISOString().slice(0,10);};
+const weekEndOf=ws=>{const b=new Date(ws);b.setDate(b.getDate()+WEEK_DAYS-1);
+  return b.toISOString().slice(0,10);};
+const weekLabel=ws=>{
+  const a=new Date(ws), b=new Date(weekEndOf(ws));
+  const f=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+  return f(a)+' – '+f(b);};
+const planStarted=p=>!!p&&p.week<=today;
+const planEnded=p=>!!p&&weekEndOf(p.week)<today;
+const planPhase=p=>{
+  if(!p)return {k:'none',label:''};
+  if(!planStarted(p)){const d=days(today,p.week);
+    return {k:'future',label:d===1?'Starts tomorrow':'Starts in '+d+' days'};}
+  if(planEnded(p))return {k:'past',label:'Week finished'};
+  return {k:'live',label:'Live this week'};};
+const assigneeName=id=>{const a=ASSIGNEES.find(x=>x.id===id);return a?a.name:'— nobody named —';};
+
+function weekOptions(back,fwd){
+  const out=[], base=new Date(weekStartOf(today));
+  for(let i=-back;i<=fwd;i++){
+    const d=new Date(base); d.setDate(d.getDate()+i*7);
+    const ws=d.toISOString().slice(0,10);
+    const taken=PLANS.find(p=>p.week===ws);
+    out.push({ws,label:weekLabel(ws),taken:!!taken,planId:taken?taken.id:null,
+      note:i===0?'this week':i===1?'next week':i===-1?'last week'
+        :i<0?Math.abs(i)+' weeks ago':'in '+i+' weeks'});
+  }
+  return out;
+}
+
+async function loadPlanning(){
+  try{ PLANS=await api('snag_plans?order=week.desc'); }catch(e){ PLANS=[]; }
+  try{ ASSIGNEES=await api('snag_assignees?active=is.true&order=name.asc'); }
+  catch(e){ ASSIGNEES=[]; }
+  if(!PLAN_CUR&&PLANS.length){
+    const live=PLANS.find(p=>planPhase(p).k==='live');
+    PLAN_CUR=(live||PLANS[0]).id;
+  }
+  if(PLAN_CUR&&!PITEMS[PLAN_CUR])await loadPlanItems(PLAN_CUR);
+}
+async function loadPlanItems(planId){
+  try{ PITEMS[planId]=await api('snag_plan_items?plan_id=eq.'+planId+'&order=id.asc'); }
+  catch(e){ PITEMS[planId]=[]; }
+  return PITEMS[planId];
+}
+
+/* the people who do the closing are kept apart from the login accounts —
+   type a name once and it is offered from then on */
+async function resolveAssignee(name){
+  const n=(name||'').trim();
+  if(!n)return null;
+  const hit=ASSIGNEES.find(a=>a.name.toLowerCase()===n.toLowerCase());
+  if(hit)return hit.id;
+  try{
+    const made=await api('snag_assignees',{method:'POST',
+      headers:{Prefer:'return=representation'},
+      body:JSON.stringify({name:n,reportsTo:USER?USER.id:null})});
+    const rec=Array.isArray(made)?made[0]:made;
+    if(rec&&rec.id){ ASSIGNEES.push(rec); return rec.id; }
+  }catch(e){}
+  return null;
+}
+function assigneeField(it){
+  const cur=it.assigneeId?assigneeName(it.assigneeId):'';
+  return `<input class="pa" list="alist" data-i="${it.id}" value="${esc(cur)}"
+    placeholder="who is closing it">`;
+}
+function assigneeList(){
+  return `<datalist id="alist">${ASSIGNEES.map(a=>`<option>${esc(a.name)}</option>`).join('')}</datalist>`;
+}
+
+/* an item is done when its snag is closed */
+function itemState(it){
+  const r=AB.find(x=>x.id===it.snag_id);
+  if(!r)return {k:'gone',label:'snag deleted',color:'var(--ink3)'};
+  if(r.status==='Closed')
+    return {k:'done',label:'Closed'+(r.closed_date?' '+r.closed_date:''),color:'#0f9d58'};
+  const late=it.plannedDate&&it.plannedDate<today;
+  return {k:'open',label:late?'Open — past '+it.plannedDate:'Still open',
+    color:late?'#d64545':'var(--ink2)'};
+}
+function planProgress(planId){
+  const items=PITEMS[planId]||[];
+  const done=items.filter(it=>itemState(it).k==='done').length;
+  return {done,total:items.length,pct:items.length?Math.round(done/items.length*100):0};
+}
+function progressBar(planId){
+  const p=planProgress(planId);
+  return `<div class="pprog"><div class="ptrack"><i style="width:${p.pct}%"></i></div>
+    <span>${p.done} of ${p.total} closed · ${p.pct}%</span></div>`;
+}
+
+function planRows(planId){
+  const items=PITEMS[planId]||[];
+  if(!items.length)return '<div class="empty"><b>No snags in this week yet</b>'+
+    'Tick snags in the register and press “Add to plan”.</div>';
+  return `<table class="ptbl"><thead><tr>
+      <th style="width:80px">Snag</th><th>Observation</th><th style="width:120px">Station</th>
+      <th style="width:150px">Responsible</th><th style="width:130px">By</th>
+      <th style="width:150px">State</th><th style="width:34px"></th></tr></thead><tbody>
+    ${items.map(it=>{
+      const r=AB.find(x=>x.id===it.snag_id)||{};
+      const st=itemState(it);
+      return `<tr>
+        <td class="mono"><a class="lnk" data-go="${it.snag_id}">${esc(r.snag_no||'—')}</a></td>
+        <td>${esc((r.description||'').slice(0,90))}</td>
+        <td>${esc(r.station||'')}</td>
+        <td>${canEdit()?assigneeField(it):esc(it.assigneeId?assigneeName(it.assigneeId):'—')}</td>
+        <td>${canEdit()?`<input class="pd" type="date" data-i="${it.id}"
+              value="${esc(it.plannedDate||'')}">`:esc(it.plannedDate||'—')}</td>
+        <td style="color:${st.color};font-weight:600">${esc(st.label)}</td>
+        <td>${canEdit()?`<button class="lnk" data-rm="${it.id}" title="Take out of the week">✕</button>`:''}</td>
+      </tr>`;}).join('')}
+    </tbody></table>`+assigneeList();
+}
+
+async function openPlans(){
+  const w=[...WINS.values()].find(x=>x.kind==='plan')||
+    createWindow('plan','Weekly plan','snags targeted for closure',null,null,940,620);
+  focusWin(w.id);
+  w.body.innerHTML='<div class="dash"><div class="hint">Loading…</div></div>';
+  await loadPlanning();
+  drawPlans();
+  return w;
+}
+function drawPlans(){
+  const w=[...WINS.values()].find(x=>x.kind==='plan'); if(!w)return;
+  if(!PLANS.length){
+    w.body.innerHTML=`<div class="dash"><div class="empty"><b>No weeks planned yet</b>
+      A week lists the snags you mean to close between Sunday and Friday.
+      ${canEdit()?'<br><br><button class="btn primary" id="pnew">New week</button>':''}</div></div>`;
+    const b=w.body.querySelector('#pnew'); if(b)b.onclick=newPlanWeek;
+    return;
+  }
+  const plan=PLANS.find(p=>p.id===PLAN_CUR)||PLANS[0];
+  PLAN_CUR=plan.id;
+  const ph=planPhase(plan);
+  w.body.innerHTML=`<div class="dash">
+    <div class="pbar">
+      <select class="f" id="pweek">${PLANS.map(p=>
+        `<option value="${p.id}"${p.id===plan.id?' selected':''}>${weekLabel(p.week)}${
+          planPhase(p).k==='live'?' · live':''}</option>`).join('')}</select>
+      <span class="pphase ${ph.k}">${ph.label}</span>
+      <span class="sp"></span>
+      ${canEdit()?'<button class="btn" id="pnew">New week</button>':''}
+      ${canEdit()?'<button class="btn danger" id="pdel">Delete week</button>':''}
+      <button class="btn" id="ppdf">Export PDF</button>
+    </div>
+    <div class="panel">${progressBar(plan.id)}</div>
+    <div class="panel">${planRows(plan.id)}</div></div>`;
+  wirePlans(w);
+}
+function wirePlans(w){
+  const b=w.body;
+  const sel=b.querySelector('#pweek');
+  if(sel)sel.onchange=async e=>{ PLAN_CUR=+e.target.value;
+    if(!PITEMS[PLAN_CUR])await loadPlanItems(PLAN_CUR); drawPlans(); };
+  const nw=b.querySelector('#pnew'); if(nw)nw.onclick=newPlanWeek;
+  const dl=b.querySelector('#pdel'); if(dl)dl.onclick=deletePlanWeek;
+  const pd=b.querySelector('#ppdf'); if(pd)pd.onclick=exportPlanPDF;
+  b.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{
+    const r=AB.find(x=>x.id===+el.dataset.go); if(r)openDiscussion(r);});
+  b.querySelectorAll('.pa').forEach(inp=>inp.onchange=async()=>{
+    const who=await resolveAssignee(inp.value);
+    await api('snag_plan_items?id=eq.'+inp.dataset.i,
+      {method:'PATCH',body:JSON.stringify({assigneeId:who})});
+    const it=(PITEMS[PLAN_CUR]||[]).find(x=>x.id===+inp.dataset.i);
+    if(it)it.assigneeId=who;
+    toast(who?'Given to '+assigneeName(who):'Left unassigned');});
+  b.querySelectorAll('.pd').forEach(i=>i.onchange=async()=>{
+    await api('snag_plan_items?id=eq.'+i.dataset.i,
+      {method:'PATCH',body:JSON.stringify({plannedDate:i.value})});
+    const it=(PITEMS[PLAN_CUR]||[]).find(x=>x.id===+i.dataset.i);
+    if(it)it.plannedDate=i.value;
+    toast('Date set');});
+  b.querySelectorAll('[data-rm]').forEach(x=>x.onclick=async()=>{
+    await api('snag_plan_items?id=eq.'+x.dataset.rm,{method:'DELETE'});
+    await loadPlanItems(PLAN_CUR); drawPlans(); toast('Taken out of the week');});
+}
+
+function newPlanWeek(){
+  if(!canEdit())return toast('Your account cannot edit');
+  const opts=weekOptions(2,5).filter(o=>!o.taken);
+  if(!opts.length)return toast('Every nearby week already has a plan');
+  const dlg=msgBox('New week','','<div class="wlist">'+opts.map(o=>
+    `<button class="wopt" data-ws="${o.ws}"><b>${o.label}</b><span>${o.note}</span></button>`
+    ).join('')+'</div>',[['Cancel',null,'']]);
+  dlg.querySelectorAll('[data-ws]').forEach(b=>b.onclick=async()=>{
+    if(_planBusy)return; _planBusy=true;
+    try{
+      const made=await api('snag_plans',{method:'POST',
+        headers:{Prefer:'return=representation'},
+        body:JSON.stringify({week:b.dataset.ws,created_by:USER?USER.name:''})});
+      const rec=Array.isArray(made)?made[0]:made;
+      closeMsg(); await loadPlanning();
+      if(rec&&rec.id){PLAN_CUR=rec.id; PITEMS[rec.id]=[];}
+      drawPlans(); toast('Week added');
+    }catch(e){ toast('Could not add that week'); }
+    finally{ _planBusy=false; }});
+}
+function deletePlanWeek(){
+  const plan=PLANS.find(p=>p.id===PLAN_CUR); if(!plan)return;
+  const p=planProgress(plan.id);
+  msgBox('Delete this week?','',
+    `<b>${weekLabel(plan.week)}</b> holds ${p.total} snag(s).<br><br>
+     The snags themselves are not touched — only the week is removed.`,
+    [['Cancel',null,''],['Delete',async()=>{
+      await api('snag_plans?id=eq.'+plan.id,{method:'DELETE'});
+      delete PITEMS[plan.id]; PLAN_CUR=null;
+      await loadPlanning(); drawPlans(); toast('Week deleted');
+    },'danger']]);
+}
+
+async function addPickedToPlan(){
+  if(!canEdit())return toast('Your account cannot edit');
+  const ids=PICKED.size?[...PICKED]:[...new Set(selCells().map(x=>x.row.id))];
+  if(!ids.length)return toast('Tick the snags you want to plan first');
+  if(!PLANS.length)await loadPlanning();
+  const opts=weekOptions(1,5);
+  const dlg=msgBox('Add '+ids.length+' snag(s) to a week','',
+    '<div class="wlist">'+opts.map(o=>
+      `<button class="wopt" data-ws="${o.ws}" data-id="${o.planId||''}">
+        <b>${o.label}</b><span>${o.note}${o.taken?' · already planned':''}</span></button>`
+      ).join('')+'</div>',[['Cancel',null,'']]);
+  dlg.querySelectorAll('[data-ws]').forEach(b=>b.onclick=async()=>{
+    if(_planBusy)return; _planBusy=true;
+    try{
+      let planId=b.dataset.id?+b.dataset.id:null;
+      if(!planId){
+        const made=await api('snag_plans',{method:'POST',
+          headers:{Prefer:'return=representation'},
+          body:JSON.stringify({week:b.dataset.ws,created_by:USER?USER.name:''})});
+        const rec=Array.isArray(made)?made[0]:made; planId=rec.id;
+        await loadPlanning();
+      }
+      const have=new Set((await loadPlanItems(planId)).map(x=>x.snag_id));
+      const add=ids.filter(id=>!have.has(id));
+      if(add.length){
+        await api('snag_plan_items',{method:'POST',body:JSON.stringify(
+          add.map(id=>({plan_id:planId,snag_id:id,
+            base_status:(AB.find(x=>x.id===id)||{}).status||'Open',
+            plannedDate:weekEndOf(b.dataset.ws)})))});
+      }
+      closeMsg();
+      PLAN_CUR=planId; await loadPlanItems(planId);
+      PICKED.clear(); renderGrid();
+      const w=[...WINS.values()].find(x=>x.kind==='plan');
+      if(w)drawPlans(); else await openPlans();
+      toast(add.length?add.length+' added to '+weekLabel(b.dataset.ws)
+        :'Those snags were already in that week');
+    }catch(e){ toast('Could not add to the plan'); }
+    finally{ _planBusy=false; }});
+}
+
+function exportPlanPDF(){
+  const plan=PLANS.find(p=>p.id===PLAN_CUR); if(!plan)return;
+  const items=PITEMS[plan.id]||[], p=planProgress(plan.id);
+  let root=document.getElementById('printroot');
+  if(!root){ root=document.createElement('div'); root.id='printroot'; document.body.appendChild(root); }
+  root.innerHTML=`<div class="rhead"><h1>NWC Handover — Weekly Closure Plan</h1>
+      <div class="rsub">Week of ${weekLabel(plan.week)} · D2 · D5 · K2 · Q1</div></div>
+    <div class="rkpis">
+      <div class="rk"><span>Snags in the week</span><b>${p.total}</b></div>
+      <div class="rk"><span>Closed</span><b>${p.done}</b></div>
+      <div class="rk"><span>Progress</span><b>${p.pct}%</b></div></div>
+    <table class="rtbl"><thead><tr><th class="c-idx">#</th><th>Snag</th><th>Observation</th>
+      <th>Station</th><th>Responsible</th><th>By</th><th>State</th></tr></thead><tbody>
+      ${items.map((it,i)=>{const r=AB.find(x=>x.id===it.snag_id)||{},st=itemState(it);
+        return `<tr><td class="c-idx">${i+1}</td><td>${esc(r.snag_no||'')}</td>
+          <td>${esc((r.description||'').slice(0,120))}</td><td>${esc(r.station||'')}</td>
+          <td>${esc(it.assigneeId?assigneeName(it.assigneeId):'')}</td>
+          <td>${esc(it.plannedDate||'')}</td><td>${esc(st.label)}</td></tr>`;}).join('')}
+    </tbody></table>
+    <div class="rfoot">Weekly closure plan · ${new Date().toLocaleString('en-GB')}${
+      USER?' · issued by '+esc(USER.name):''}</div>`;
+  document.body.classList.add('printing');
+  const done=()=>{ document.body.classList.remove('printing');
+    window.removeEventListener('afterprint',done); };
+  window.addEventListener('afterprint',done);
+  window.print();
+  setTimeout(done,1200);
+}
+
+/* ---------- mobile ---------- */
+function mobPlan(){
+  if(!PLANS.length)return offBar()+`<div class="empty"><b>No weeks planned yet</b>
+    Plan a week from a computer, or add snags from the register.</div>`;
+  const plan=PLANS.find(p=>p.id===PLAN_CUR)||PLANS[0];
+  PLAN_CUR=plan.id;
+  const items=PITEMS[plan.id]||[], pr=planProgress(plan.id), ph=planPhase(plan);
+  return offBar()+`<div class="mplan">
+      <select class="f" id="mpweek">${PLANS.map(p=>
+        `<option value="${p.id}"${p.id===plan.id?' selected':''}>${weekLabel(p.week)}</option>`
+        ).join('')}</select>
+      <div class="pphase ${ph.k}">${ph.label}</div>
+      ${progressBar(plan.id)}</div>`+
+    (items.length?items.map((it,i)=>{
+      const r=AB.find(x=>x.id===it.snag_id)||{}, st=itemState(it);
+      return `<article class="dcard" data-mo="${it.snag_id}"
+          style="animation-delay:${Math.min(i,12)*26}ms;--edge:${st.color}">
+        <div class="dc-h"><span class="dc-no">${esc(r.snag_no||'—')}</span>
+          <span class="dc-code" style="color:${st.color};border-color:${st.color}55">${esc(st.label)}</span></div>
+        <h3 class="dc-t">${esc((r.description||'').slice(0,110))}</h3>
+        <div class="dc-m">${esc(r.station||'')}${
+          it.assigneeId?'<i class="sep"></i>'+esc(assigneeName(it.assigneeId)):''}${
+          it.plannedDate?'<i class="sep"></i>by '+esc(it.plannedDate):''}</div></article>`;}).join('')
+      :'<div class="empty"><b>Nothing in this week</b>Add snags from the register.</div>');
 }
 
 function mobRows(){
@@ -2404,6 +2756,9 @@ function wireMob(){
                     onLeft:()=>{const id=+el.dataset.tick;PICKED.delete(id);mobRender();}});});
   const mpk=document.getElementById('mpick');
   if(mpk)mpk.onclick=()=>{MOB.pick=!MOB.pick; if(!MOB.pick)PICKED.clear(); mobRender();};
+  const pw=document.getElementById('mpweek');
+  if(pw)pw.onchange=async e=>{ PLAN_CUR=+e.target.value;
+    if(!PITEMS[PLAN_CUR])await loadPlanItems(PLAN_CUR); mobRender(); };
   b.querySelectorAll('[data-mf]').forEach(el=>el.onclick=()=>{
     MOB.f=el.dataset.mf;MOB.fs='';MOB.fd='';mobRender();});
   const mp=document.getElementById('mpdf'); if(mp)mp.onclick=exportPDF;
@@ -2589,6 +2944,7 @@ async function loadData(){
       if(n.length!==NOTIFS.length){NOTIFS=n;updateBell();} }catch(e){} },90*1000);
   await loadCommentCounts();
   await loadMembers();
+  await loadPlanning();
   touchSeen();
 }
 async function loadMembers(){
@@ -2659,6 +3015,7 @@ async function boot(){
 /* topbar wiring */
 document.getElementById('b-reg').onclick=()=>{if(GRID&&WINS.has(GRID.win.id))focusWin(GRID.win.id);else openRegister();};
 document.getElementById('b-dash').onclick=openDashboard;
+document.getElementById('b-plan').onclick=openPlans;
 document.getElementById('b-undo').onclick=undo;
 document.getElementById('b-redo').onclick=redo;
 document.getElementById('b-bell').onclick=openNotifs;
