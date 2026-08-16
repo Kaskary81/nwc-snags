@@ -934,6 +934,22 @@ table.heat .tot:hover{outline:none}
 :root[data-theme="dark"] .k-C .dc-code{color:#f0a077}
 :root[data-theme="dark"] .pphase.live{color:#5fd08e}
 :root[data-theme="dark"] .pphase.future{color:#7fb3f0}
+
+/* one ring per project — bigger, and every label takes its colour from the theme */
+.pdonuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+  gap:18px;padding:6px 2px}
+.pd{margin:0;display:flex;flex-direction:column;align-items:center;gap:10px}
+.pd svg{width:100%;max-width:190px;height:auto;display:block}
+.pd .pdpct{font-size:26px;font-weight:700;fill:var(--ink)}
+.pd .pdsub{font-size:11px;fill:var(--ink3);text-transform:uppercase;letter-spacing:.08em}
+.pd figcaption{display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.pd figcaption b{font-size:15px;color:var(--ink);letter-spacing:.02em}
+.pd .pdn{font-size:12px;color:var(--ink2);display:inline-flex;align-items:center;gap:6px}
+.pd .pdn i{width:10px;height:10px;border-radius:3px;display:inline-block;flex:none}
+.pd .pdt{font-size:11px;color:var(--ink3)}
+body.mobile .pdonuts{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
+body.mobile .pd svg{max-width:150px}
+body.mobile .pd .pdpct{font-size:22px}
 </style>
 </head>
 <body>
@@ -1043,7 +1059,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v14';
+const BUILD='SNAG 2026-08-16 · v15';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -2025,32 +2041,31 @@ function donutChart(){
 function projectColumns(){
   const s=stats();
   if(!s.projects.length)return '<div class="empty">Nothing recorded.</div>';
-  const max=Math.max(...s.projects.map(p=>p.t),1);
-  const W=Math.max(300, s.projects.length*96), H=200, base=H-34, top=16;
-  return `<svg viewBox="0 0 ${W} ${H}" class="cols" preserveAspectRatio="xMinYMid meet"
-      style="max-height:${H}px">
-    <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line)"/>
-    ${s.projects.map((p,i)=>{
-      const bw=52, x=i*96+((96-bw)/2)+8;
-      const hT=(p.t/max)*(base-top), hO=(p.open/max)*(base-top);
-      const closed=p.t-p.open;
-      return `<g class="colg">
-        <rect x="${x}" y="${base-hT}" width="${bw}" height="${hT}" rx="5"
-          fill="${C_DONE}" opacity=".85" data-fp="${esc(p.p)}" data-fs="Closed">
-          <title>${esc(p.p)} — ${closed} closed</title></rect>
-        <rect x="${x}" y="${base-hO}" width="${bw}" height="${hO}" rx="5"
-          fill="${C_OPEN}" data-fp="${esc(p.p)}" data-fs="Open">
-          <title>${esc(p.p)} — ${p.open} open</title></rect>
-        <text x="${x+bw/2}" y="${base-hT-6}" text-anchor="middle" class="cval">${p.t}</text>
-        <text x="${x+bw/2}" y="${base+15}" text-anchor="middle" class="clab">${esc(p.p)}</text>
-        <text x="${x+bw/2}" y="${base+28}" text-anchor="middle" class="csub">${p.open} open</text>
-      </g>`;}).join('')}
-  </svg>
-  <div class="legend"><span><i class="sw" style="background:${C_OPEN}"></i>Open</span>
-    <span><i class="sw" style="background:${C_DONE}"></i>Closed</span></div>`;
+  const R=54, SW=15, C=R+SW/2+6, BOX=(R+SW/2+6)*2;   /* one ring per project */
+  const circ=2*Math.PI*R;
+  return `<div class="pdonuts">${s.projects.map(p=>{
+    const closed=p.t-p.open, pct=p.t?Math.round(closed/p.t*100):0;
+    const dash=circ*(pct/100);
+    return `<figure class="pd">
+      <svg viewBox="0 0 ${BOX} ${BOX}" role="img" aria-label="${esc(p.p)} ${pct}% closed">
+        <circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${C_OPEN}"
+          stroke-width="${SW}" opacity=".85" data-fp="${esc(p.p)}" data-fs="Open"
+          style="cursor:pointer"><title>${esc(p.p)} — ${p.open} still open</title></circle>
+        <circle cx="${C}" cy="${C}" r="${R}" fill="none" stroke="${C_DONE}"
+          stroke-width="${SW}" stroke-linecap="round"
+          stroke-dasharray="${dash} ${circ-dash}"
+          transform="rotate(-90 ${C} ${C})" data-fp="${esc(p.p)}" data-fs="Closed"
+          style="cursor:pointer"><title>${esc(p.p)} — ${closed} closed</title></circle>
+        <text x="${C}" y="${C-2}" text-anchor="middle" class="pdpct">${pct}%</text>
+        <text x="${C}" y="${C+15}" text-anchor="middle" class="pdsub">closed</text>
+      </svg>
+      <figcaption>
+        <b>${esc(p.p)}</b>
+        <span class="pdn"><i style="background:${C_OPEN}"></i>${p.open} open</span>
+        <span class="pdn"><i style="background:${C_DONE}"></i>${closed} closed</span>
+        <span class="pdt">${p.t} in total</span>
+      </figcaption></figure>`;}).join('')}</div>`;
 }
-
-/* ---------- a gauge for the safety items ---------- */
 function hcisGauge(){
   const s=stats();
   if(!s.hcisTotal)return '<div class="empty">No HCIS items recorded.</div>';
