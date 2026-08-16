@@ -234,16 +234,17 @@ body.mobile .plotsvg .tip{stroke:var(--m-card)}
 @media(prefers-reduced-motion:reduce){.plotsvg .draw{animation:none;stroke-dashoffset:0}}
 
 /* legend */
-.chart .legend{display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-top:9px;
-  font-size:10px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--c-dim)}
-.chart .legend b{font-family:var(--mono);letter-spacing:-.02em;font-size:11px}
-.chart .legend .rt{margin-left:auto;text-transform:none;letter-spacing:.02em}
-.chart .legend i.sw{width:13px;height:2.5px;border-radius:2px;display:inline-block;
-  margin-right:5px;vertical-align:2px;background:var(--c-dim)}
-.chart .legend i.sw.act{background:var(--accent);height:3px}
-.chart .legend i.sw.ret{background:#0f9d58}
-.chart .legend i.sw.pln{background:repeating-linear-gradient(90deg,var(--c-dim) 0 4px,transparent 4px 7px)}
-.chart .legend i.sw.wip{background:rgba(240,180,41,.5);height:9px;border-radius:2px;vertical-align:-1px}
+.legend{display:flex;gap:13px;flex-wrap:wrap;align-items:center;margin-top:9px;
+  font-size:10px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+.legend span{display:inline-flex;align-items:center}
+.legend b{font-family:var(--mono);letter-spacing:-.02em;font-size:11px}
+.legend .rt{margin-left:auto;text-transform:none;letter-spacing:.02em}
+.legend i.sw{width:13px;height:9px;border-radius:2px;display:inline-block;flex:none;
+  margin-right:6px;background:var(--ink3)}
+.legend i.sw.act{background:var(--accent)}
+.legend i.sw.ret{background:#0f9d58}
+.legend i.sw.pln{background:repeating-linear-gradient(90deg,var(--c-dim) 0 4px,transparent 4px 7px)}
+.legend i.sw.wip{background:rgba(240,180,41,.5)}
 
 /* review code ring */
 .ringc{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center}
@@ -901,7 +902,9 @@ table.ptbl input{width:100%;border:1px solid var(--line);border-radius:7px;paddi
 .cval{font-size:11px;font-weight:700;fill:var(--ink2)}
 .clab{font-size:12px;font-weight:650;fill:var(--ink)}
 .csub{font-size:10px;fill:var(--ink3)}
-table.heat{width:100%;border-collapse:collapse;font-size:12px}
+table.heat{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+table.heat th:first-child{width:190px}
+table.heat .tot{width:64px}
 table.heat th{font-weight:600;color:var(--ink3);font-size:11px;padding:5px 7px;text-align:center}
 table.heat tbody th{text-align:left;color:var(--ink2);max-width:150px;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
@@ -917,6 +920,20 @@ table.heat .tot:hover{outline:none}
 .hbt{height:15px;background:var(--chip);border-radius:5px;overflow:hidden}
 .hbt i{display:block;height:100%;border-radius:5px;transition:width .4s ease}
 .hbn{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+
+/* dark theme: these chips sit on a faint tint, so a dark ink disappears on them */
+:root[data-theme="dark"] .st-done,
+:root[data-theme="dark"] .k-A .dc-code,
+:root[data-theme="dark"] .k-I .dc-code,
+:root[data-theme="dark"] .k-B .dc-code{color:#5fd08e}
+:root[data-theme="dark"] .st-late,
+:root[data-theme="dark"] .k-W .dc-code,
+:root[data-theme="dark"] .dc-m .out{color:#f5c451}
+:root[data-theme="dark"] .st-over,
+:root[data-theme="dark"] .k-D .dc-code{color:#f08080}
+:root[data-theme="dark"] .k-C .dc-code{color:#f0a077}
+:root[data-theme="dark"] .pphase.live{color:#5fd08e}
+:root[data-theme="dark"] .pphase.future{color:#7fb3f0}
 </style>
 </head>
 <body>
@@ -1026,7 +1043,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v13';
+const BUILD='SNAG 2026-08-16 · v14';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -1133,9 +1150,7 @@ async function postComment(id,body){
   const r=await api('snag_comments',{method:'POST',
     headers:{Prefer:'return=representation'},body:JSON.stringify(row)});
   (CMTS[id]=CMTS[id]||[]).push(r[0]);
-  const document=AB.find(x=>x.id===id)||{id,ref:''};
-  const told=await notifyMentions(body.trim(),document,r[0].id);
-  if(told.length)toast('Notified '+told.map(m=>m.name.split(' ')[0]).join(', '));
+  /* the database trigger raises the notifications, including mentions */
   CCOUNT[id]=(CCOUNT[id]||0)+1;
   await logAct('comment',AB.find(x=>x.id===id)||{id},'discussion','',body.trim().slice(0,60));
   if(GRID&&GRID.win&&WINS.has(GRID.win.id))renderGrid();
@@ -2012,7 +2027,8 @@ function projectColumns(){
   if(!s.projects.length)return '<div class="empty">Nothing recorded.</div>';
   const max=Math.max(...s.projects.map(p=>p.t),1);
   const W=Math.max(300, s.projects.length*96), H=200, base=H-34, top=16;
-  return `<svg viewBox="0 0 ${W} ${H}" class="cols" preserveAspectRatio="xMidYMid meet">
+  return `<svg viewBox="0 0 ${W} ${H}" class="cols" preserveAspectRatio="xMinYMid meet"
+      style="max-height:${H}px">
     <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="var(--line)"/>
     ${s.projects.map((p,i)=>{
       const bw=52, x=i*96+((96-bw)/2)+8;
