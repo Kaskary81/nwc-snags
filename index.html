@@ -553,15 +553,15 @@ body.mobile .kindtab.on{background:var(--accent-soft);border-color:var(--accent)
   #printroot .rtbl th,#printroot .rtbl td{padding:2.5pt 3pt;word-wrap:break-word;overflow-wrap:anywhere}
   #printroot .c-idx{width:3%}
   #printroot .c-snag_no{width:7%;font-family:var(--mono)}
+  #printroot .c-description{width:30%}
   #printroot .c-project{width:6%;text-align:center}
   #printroot .c-station{width:11%}
-  #printroot .c-area{width:11%}
-  #printroot .c-discipline{width:10%}
-  #printroot .c-category{width:12%}
-  #printroot .c-description{width:26%}
+  #printroot .c-discipline{width:11%}
   #printroot .c-status{width:6%;text-align:center}
+  #printroot .c-category{width:11%}
   #printroot .c-assignee{width:8%}
   #printroot .c-target_date{width:7%;text-align:center;font-family:var(--mono)}
+  #printroot .c-remark{width:10%}
 }
 #printroot{display:none}
 @media screen{ body.printing #printroot{display:none} }
@@ -936,15 +936,15 @@ const APPROVED=['Closed'], REJECTED=[];
 const CODES=STATUSES;
 const COLS=[
   {k:'snag_no',        t:'Snag no.',       w:88,  cls:'mono'},
+  {k:'description',    t:'Observation',    w:420},
   {k:'project',        t:'Project',        w:74,  cls:'ctr', opts:()=>listOf('project')},
   {k:'station',        t:'Station',        w:150, opts:()=>listOf('station')},
-  {k:'area',           t:'Area / system',  w:145, opts:()=>listOf('area')},
-  {k:'description',    t:'Observation',    w:400},
   {k:'discipline',     t:'Discipline',     w:160, opts:()=>listOf('discipline')},
+  {k:'status',         t:'Status',         w:92,  cls:'ctr', opts:()=>STATUSES, pill:1},
+  {k:'area',           t:'Area / system',  w:145, opts:()=>listOf('area')},
   {k:'sub_discipline', t:'Sub-discipline', w:160, opts:()=>listOf('sub_discipline')},
   {k:'category',       t:'Category',       w:170, opts:()=>listOf('category')},
   {k:'hcis',           t:'HCIS',           w:140, opts:()=>listOf('hcis')},
-  {k:'status',         t:'Status',         w:92,  cls:'ctr', opts:()=>STATUSES, pill:1},
   {k:'assignee',       t:'Responsible',    w:135},
   {k:'target_date',    t:'Target',         w:104, date:1},
   {k:'closed_date',    t:'Closed on',      w:104, date:1},
@@ -1213,7 +1213,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v3';
+const BUILD='SNAG 2026-08-16 · v4';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1741,8 +1741,8 @@ function buildReport(){
       USER?' · issued by '+esc(USER.name):''}</div>`;
 }
 function reportCols(){
-  return ['snag_no','project','station','area','discipline','category',
-          'description','status','assignee','target_date']
+  return ['snag_no','description','project','station','discipline','status',
+          'category','assignee','target_date','remark']
     .map(k=>COLBY[k]).filter(Boolean);
 }
 
