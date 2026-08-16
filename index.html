@@ -985,7 +985,7 @@ const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
 
 /* ---------------- state ---------------- */
 let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
-let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46};
+let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[];
 const today=new Date().toISOString().slice(0,10);
 
@@ -1253,7 +1253,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v11';
+const BUILD='SNAG 2026-08-16 · v12';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1396,18 +1396,24 @@ async function setCell(row,k,val,silent){
 
 /* ---------------- column prefs ---------------- */
 function visCols(){ return PREFS.order.map(k=>COLBY[k]).filter(c=>c&&!PREFS.hidden.includes(c.k)); }
-function applyRowSize(){
+const rowLines=h=>Math.max(1,Math.floor((h-12)/17));
+const rowVars=h=>`--rowh:${h}px;--rowlines:${rowLines(h)}`;
+function applyRowSize(){                    /* the height every row starts from */
   const h=Math.max(22,Math.min(200,PREFS.rowh||46));
-  const lines=Math.max(1,Math.floor((h-12)/17));
   const st=document.documentElement.style;
   st.setProperty('--rowh',h+'px');
-  st.setProperty('--rowlines',lines);
+  st.setProperty('--rowlines',rowLines(h));
+}
+function rowStyle(r){                       /* ...unless this one was set on its own */
+  const h=PREFS.rowhs&&PREFS.rowhs[r.id];
+  return h?` style="${rowVars(h)}"`:'';
 }
 function colW(c){ return PREFS.w[c.k]||c.w; }
 let _prefTimer=null;
 function currentPrefs(){
   return {theme:document.documentElement.dataset.theme==='dark'?'dark':'light',
-          order:PREFS.order,hidden:PREFS.hidden,w:PREFS.w,rowh:PREFS.rowh};
+          order:PREFS.order,hidden:PREFS.hidden,w:PREFS.w,rowh:PREFS.rowh,
+          rowhs:PREFS.rowhs};
 }
 async function savePrefs(){
   const p=currentPrefs();
@@ -1433,6 +1439,7 @@ function applyPrefs(p){
   if(p.hidden)PREFS.hidden=p.hidden.filter(k=>COLBY[k]);
   if(p.w)PREFS.w=p.w;
   if(p.rowh)PREFS.rowh=p.rowh;
+  if(p.rowhs)PREFS.rowhs=p.rowhs;
 }
 function loadPrefs(fromAccount){
   let p=null;
@@ -1649,7 +1656,7 @@ function renderGrid(){
       `<th data-c="${i}" data-k="${c.k}" class="${i===0?'stick1':''}" draggable="${canEdit()}" style="width:${colW(c)}px;min-width:${colW(c)}px">${
         esc(c.t)}${GRID.sort.k===c.k?(GRID.sort.dir>0?' ▲':' ▼'):''}<span class="cr" data-rz="${c.k}"></span></th>`).join('')}</tr></thead>`;
   const body=`<tbody>${rows.map((r,ri)=>
-    `<tr data-r="${ri}" data-id="${r.id}">
+    `<tr data-r="${ri}" data-id="${r.id}"${rowStyle(r)}>
       <th data-rh="${ri}"><input type="checkbox" class="rowchk" data-k="${r.id}"${
         PICKED.has(r.id)?' checked':''}><span class="rn">${ri+1}</span><span class="rr"></span></th>${
       cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="c-${c.k} ${c.cls||''}${ci===0?' stick1':''}">${cellText(r,c)}</td>`).join('')}
@@ -1734,20 +1741,37 @@ function wireGrid(){
       PREFS.w[k]=Math.round(Math.max(46,wid)); savePrefs(); renderGrid();
       toast(c.t+' fitted to its contents');});
   });
-  /* row height */
+  /* row height — this row on its own, or every row with Shift held */
   tbl.querySelectorAll('tbody th .rr').forEach(rr=>{
     rr.addEventListener('pointerdown',e=>{
       e.stopPropagation();e.preventDefault();
-      const y0=e.clientY,h0=PREFS.rowh||46;
+      const th=rr.closest('th[data-rh]');
+      const row=GRID.rows[+th.dataset.rh]; if(!row)return;
+      const tr=th.parentElement;
+      const all=e.shiftKey;
+      const h0=all?(PREFS.rowh||46)
+                  :((PREFS.rowhs&&PREFS.rowhs[row.id])||PREFS.rowh||46);
+      const y0=e.clientY;
       document.body.style.cursor='ns-resize';
-      const mv=ev=>{PREFS.rowh=Math.max(22,Math.min(160,h0+(ev.clientY-y0)));applyRowSize();};
+      const mv=ev=>{
+        const h=Math.max(22,Math.min(240,h0+(ev.clientY-y0)));
+        if(all){ PREFS.rowh=h; applyRowSize(); }
+        else{ PREFS.rowhs[row.id]=h; tr.setAttribute('style',rowVars(h)); }
+      };
       const up=()=>{document.removeEventListener('pointermove',mv);
-        document.body.style.cursor='';savePrefs();};
+        document.body.style.cursor='';savePrefs();
+        toast(all?'All rows resized':'Row '+(row.snag_no||'')+' resized — Shift-drag for all');};
       document.addEventListener('pointermove',mv);
       document.addEventListener('pointerup',up,{once:true});});
     rr.addEventListener('dblclick',e=>{
       e.stopPropagation();e.preventDefault();
-      PREFS.rowh=46; applyRowSize(); savePrefs(); toast('Row height reset');});
+      const th=rr.closest('th[data-rh]');
+      const row=GRID.rows[+th.dataset.rh]; if(!row)return;
+      if(e.shiftKey){ PREFS.rowh=46; PREFS.rowhs={}; applyRowSize(); renderGrid();
+        toast('Every row back to normal'); }
+      else{ delete PREFS.rowhs[row.id]; th.parentElement.removeAttribute('style');
+        toast('Row back to normal'); }
+      savePrefs();});
   });
   /* row header selects the whole row */
   tbl.querySelectorAll('tbody th[data-rh]').forEach(th=>{
