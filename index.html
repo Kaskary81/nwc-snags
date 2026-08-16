@@ -103,6 +103,7 @@ button,input,select{font-family:inherit;font-size:inherit}
 
 /* ============ grid ============ */
 .gwrap{overflow:auto;flex:1;min-height:0;height:auto}
+table.g td:last-child,table.g th:last-child{border-right:1px solid var(--grid)}
 table.g{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;
   width:max-content;min-width:100%}
 table.g th,table.g td{border-right:1px solid var(--grid);border-bottom:1px solid var(--grid);
@@ -133,6 +134,13 @@ table.g tbody th{position:sticky;left:0;z-index:3;background:var(--surface2);tex
   color:var(--muted);font-weight:500;font-size:11px;width:44px;cursor:pointer}
 table.g tbody th .rr{position:absolute;left:0;bottom:-3px;height:7px;width:100%;cursor:row-resize}
 table.g thead th.corner{left:0;z-index:6;width:44px}
+/* the first column travels with the row numbers */
+table.g thead th.stick1{position:sticky;left:44px;z-index:5}
+table.g tbody td.stick1{position:sticky;left:44px;z-index:2;
+  box-shadow:1px 0 0 var(--grid)}
+table.g tbody tr:nth-child(odd) td.stick1{background:var(--surface)}
+table.g tbody tr:nth-child(even) td.stick1{background:var(--surface2)}
+table.g tbody tr:hover td.stick1{background:var(--chip)}
 td.sel{background:var(--sel)}
 td.cur{outline:2px solid var(--selb);outline-offset:-2px;z-index:2}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
@@ -969,7 +977,7 @@ const COLS=[
   {k:'assignee',       t:'Responsible',    w:110},
   {k:'target_date',    t:'Target',         w:92,  date:1, cls:'ctr'},
   {k:'closed_date',    t:'Closed on',      w:92,  date:1, cls:'ctr'},
-  {k:'remark',         t:'Remark',         w:170}
+  {k:'remark',         t:'Remark',         w:230}
 ];
 function listOf(k){ return [...new Set(AB.map(r=>r[k]).filter(Boolean))].sort(); }
 const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
@@ -1234,7 +1242,7 @@ async function seedDatabase(){
     },'primary']]);
 }
 
-const BUILD='SNAG 2026-08-16 · v8';
+const BUILD='SNAG 2026-08-16 · v9';
 const SNAPSHOT=[];
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1620,13 +1628,13 @@ function renderGrid(){
     <span class="hint" id="gcount"></span></div>`;
   const allOn=rows.length&&rows.every(r=>PICKED.has(r.id));
   const head=`<thead><tr><th class="corner"><input type="checkbox" id="gall"${allOn?' checked':''}></th>${cs.map((c,i)=>
-      `<th data-c="${i}" data-k="${c.k}" draggable="${canEdit()}" style="width:${colW(c)}px;min-width:${colW(c)}px">${
+      `<th data-c="${i}" data-k="${c.k}" class="${i===0?'stick1':''}" draggable="${canEdit()}" style="width:${colW(c)}px;min-width:${colW(c)}px">${
         esc(c.t)}${GRID.sort.k===c.k?(GRID.sort.dir>0?' ▲':' ▼'):''}<span class="cr" data-rz="${c.k}"></span></th>`).join('')}</tr></thead>`;
   const body=`<tbody>${rows.map((r,ri)=>
     `<tr data-r="${ri}" data-id="${r.id}">
       <th data-rh="${ri}"><input type="checkbox" class="rowchk" data-k="${r.id}"${
         PICKED.has(r.id)?' checked':''}><span class="rn">${ri+1}</span><span class="rr"></span></th>${
-      cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="c-${c.k} ${c.cls||''}">${cellText(r,c)}</td>`).join('')}
+      cs.map((c,ci)=>`<td data-r="${ri}" data-c="${ci}" class="c-${c.k} ${c.cls||''}${ci===0?' stick1':''}">${cellText(r,c)}</td>`).join('')}
     </tr>`).join('')}</tbody>`;
   w.body.classList.add('gridwin');
   w.body.innerHTML=tools+`<div class="gwrap" id="gwrap"><table class="g">${head}${body}</table></div>`;
