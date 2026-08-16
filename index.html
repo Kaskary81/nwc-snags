@@ -950,6 +950,28 @@ table.heat .tot:hover{outline:none}
 body.mobile .pdonuts{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px}
 body.mobile .pd svg{max-width:150px}
 body.mobile .pd .pdpct{font-size:22px}
+
+/* day-by-day table */
+.dayfilt{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.dayfilt button{border:1px solid var(--line);background:var(--card);color:var(--ink2);
+  border-radius:20px;padding:4px 12px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+.dayfilt button:hover{border-color:var(--accent)}
+.dayfilt button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dayfilt .rt{margin-left:auto}
+table.daily{width:100%;border-collapse:collapse;font-size:12.5px}
+table.daily th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);
+  color:var(--ink3);font-size:10.5px;font-weight:650;text-transform:uppercase;letter-spacing:.05em}
+table.daily th.n,table.daily td.n{text-align:right;font-family:var(--mono)}
+table.daily td{padding:6px 8px;border-bottom:1px solid var(--line);color:var(--ink2)}
+table.daily td b{color:var(--ink);font-weight:600}
+table.daily td.good{color:#0f9d58;font-weight:700}
+table.daily th.bar,table.daily td.bar{width:34%;padding-right:14px}
+table.daily td.bar i{display:block;height:8px;border-radius:5px;background:#0f9d58;min-width:0}
+table.daily tr.td-today td{background:var(--chip)}
+.nowtag{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);
+  border:1px solid var(--accent);border-radius:10px;padding:0 6px;margin-left:5px}
+body.mobile table.daily{font-size:12px}
+body.mobile table.daily th.bar,body.mobile table.daily td.bar{display:none}
 </style>
 </head>
 <body>
@@ -1059,7 +1081,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v16';
+const BUILD='SNAG 2026-08-16 · v17';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -1300,7 +1322,7 @@ async function openBin(){
   const draw=()=>{
     w.body.innerHTML=`<div class="dash"><div class="panel">${list.length?
       `<table style="width:100%;border-collapse:collapse;font-size:12.5px">
-        <thead><tr><th>Document</th><th>Name</th><th>Deleted</th><th>By</th><th></th></tr></thead><tbody>
+        <thead><tr><th>Snag</th><th>Name</th><th>Deleted</th><th>By</th><th></th></tr></thead><tbody>
         ${list.map(r=>`<tr><td class="mono">${esc(r.snag_no)}</td><td>${esc(r.description)}</td>
           <td class="hint">${esc((r.deleted_at||'').replace('T',' ').slice(0,16))}</td>
           <td class="hint">${esc(r.deletedBy||'—')}</td>
@@ -1387,8 +1409,9 @@ async function apiUnbin(id){ if(LIVE) await api('snag_items?id=eq.'+id,
   {method:'PATCH',body:JSON.stringify({deleted_at:null})}); }
 async function logAct(action,rec,field,oldV,newV){
   if(!LIVE)return;
-  const a={ts:nowTs(),action,tbl:'snag_items',recId:rec&&rec.id,
-    recName:(rec&&rec.ref)||'',field:field||'',oldVal:String(oldV??''),newVal:String(newV??''),
+  const a={ts:nowTs(),action,rec_id:(rec&&rec.id)||null,
+    rec_name:(rec&&(rec.snag_no||rec.ref))||'',field:field||'',
+    old_val:String(oldV??''),new_val:String(newV??''),
     actor:(USER&&USER.name)||''};
   ACTS.unshift(a);
   try{await api('snag_activity',{method:'POST',body:JSON.stringify(a)});}catch(e){}
@@ -2104,6 +2127,64 @@ function hcisGauge(){
     </div></div>`;
 }
 
+
+/* ---------- day by day: what actually moved ----------
+   A snag counts against the day it was closed. The database stamps
+   closed_date the moment the status turns Closed, so the count is the
+   same whoever made the change and wherever from. */
+let DAYS_BACK=14;
+const dayKey=d=>d.toISOString().slice(0,10);
+function dailyRows(n){
+  const out=[], end=new Date(today+'T00:00:00');
+  const live=AB.filter(r=>!r.deleted_at);
+  for(let i=0;i<n;i++){
+    const d=new Date(end); d.setDate(d.getDate()-i);
+    const k=dayKey(d);
+    const closed=live.filter(r=>r.closed_date===k).length;
+    const targeted=live.filter(r=>r.target_date===k).length;
+    const planned=(typeof PITEMS==='object')
+      ? Object.values(PITEMS).flat().filter(x=>x.plannedDate===k).length : 0;
+    /* how many were still open at the end of that day */
+    const closedAfter=live.filter(r=>r.closed_date&&r.closed_date>k).length;
+    const openEnd=live.filter(r=>r.status==='Open').length+closedAfter;
+    out.push({k,d,closed,targeted,planned,openEnd});
+  }
+  return out;
+}
+function dailyTable(){
+  const rows=dailyRows(DAYS_BACK);
+  const total=AB.filter(r=>!r.deleted_at).length;
+  const anyClosed=rows.some(r=>r.closed);
+  const fmt=d=>d.toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'short'});
+  const best=Math.max(1,...rows.map(r=>r.closed));
+  return `<div class="dayfilt">${[7,14,30,60].map(n=>
+      `<button data-days="${n}" class="${DAYS_BACK===n?'on':''}">${n} days</button>`).join('')}
+    <span class="rt hint">from today back</span></div>
+  <table class="daily"><thead><tr>
+      <th>Day</th><th class="n">Closed</th><th class="bar"></th>
+      <th class="n">Due that day</th><th class="n">Planned</th>
+      <th class="n">Still open at close</th><th class="n">% closed</th></tr></thead><tbody>
+    ${rows.map(r=>{
+      const pct=total?Math.round((total-r.openEnd)/total*1000)/10:0;
+      const isToday=r.k===today;
+      return `<tr${isToday?' class="td-today"':''}>
+        <td><b>${fmt(r.d)}</b>${isToday?' <span class="nowtag">today</span>':''}</td>
+        <td class="n ${r.closed?'good':''}">${r.closed||'—'}</td>
+        <td class="bar"><i style="width:${r.closed/best*100}%"></i></td>
+        <td class="n">${r.targeted||'—'}</td>
+        <td class="n">${r.planned||'—'}</td>
+        <td class="n">${r.openEnd}</td>
+        <td class="n">${pct}%</td></tr>`;}).join('')}
+  </tbody></table>
+  ${anyClosed?'':`<div class="hint" style="padding:8px 2px">
+    Nothing has been closed in this window yet. From now on, every snag you switch to
+    Closed is stamped with that day and appears here.</div>`}`;
+}
+function wireDaily(root){
+  root.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{
+    DAYS_BACK=+b.dataset.days; renderDash(); if(MOBILE)mobRender();});
+}
+
 /* ---------- a matrix: which discipline is holding which project up ---------- */
 function heatMatrix(){
   const projects=[...new Set(AB.map(r=>r.project).filter(Boolean))].sort();
@@ -2236,8 +2317,9 @@ function renderDash(){
       <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
       <div class="panel"><h3>What keeps coming up</h3>${categoryBars()}</div>
     </div>
+    <div class="panel"><h3>Day by day — snags closed</h3>${dailyTable()}</div>
     <div class="panel"><h3>Open and past target</h3>${overdueSnags(20)}</div></div>`;
-  wireBreak(w.body);
+  wireBreak(w.body); wireDaily(w.body);
   wireCharts2(w.body);
   w.body.querySelectorAll('[data-go]').forEach(el=>el.onclick=()=>{
     const r=AB.find(x=>x.id===+el.dataset.go); if(r)openDiscussion(r);});
@@ -2326,8 +2408,8 @@ async function openActivity(){
   w.body.innerHTML=`<div class="dash"><div class="panel">
     ${ACTS.length?`<table><thead><tr><th>When</th><th>Who</th><th>Document</th><th>Field</th><th>From</th><th>To</th></tr></thead>
     <tbody>${ACTS.map(a=>`<tr><td class="hint">${esc((a.ts||'').replace('T',' ').slice(0,16))}</td>
-      <td>${esc(a.actor||'—')}</td><td>${esc(a.recName||'—')}</td><td>${esc(COLBY[a.field]?COLBY[a.field].t:a.field)}</td>
-      <td class="hint">${esc((a.oldVal||'').slice(0,40))||'—'}</td><td>${esc((a.newVal||'').slice(0,40))||'—'}</td></tr>`).join('')}
+      <td>${esc(a.actor||'—')}</td><td>${esc(a.rec_name||a.recName||'—')}</td><td>${esc(COLBY[a.field]?COLBY[a.field].t:a.field)}</td>
+      <td class="hint">${esc((a.old_val??a.oldVal??'').slice(0,40))||'—'}</td><td>${esc((a.new_val??a.newVal??'').slice(0,40))||'—'}</td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">No changes recorded yet.</div>'}</div></div>`;
 }
 function whenSeen(ts){
@@ -2946,6 +3028,7 @@ function mobDash(){
     <div class="panel"><h3>Each project</h3>${projectColumns()}</div>
     <div class="panel"><h3>HCIS safety items</h3>${hcisGauge()}</div>
     <div class="panel"><h3>Discipline against project</h3>${heatMatrix()}</div>
+    <div class="panel"><h3>Day by day — snags closed</h3>${dailyTable()}</div>
     <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
     <div class="panel"><h3>What keeps coming up</h3>${categoryBars()}</div>`;
 }
@@ -3085,7 +3168,7 @@ function attachSwipe(el,{onLeft,onRight,leftLabel,rightLabel}){
 
 function wireMob(){
   const b=document.getElementById('mbody');
-  wireBreak(b); wireCharts2(b);
+  wireBreak(b); wireCharts2(b); wireDaily(b);
   b.querySelectorAll('[data-mo]').forEach(el=>{
     el.onclick=()=>mobGo('one',+el.dataset.mo);
     if(canEdit()&&MOB.view==='reg')attachSwipe(el,{onRight:()=>{
