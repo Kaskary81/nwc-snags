@@ -990,6 +990,125 @@ body.mobile table.daily th.bar,body.mobile table.daily td.bar{display:none}
   border-radius:20px;padding:7px 12px;font:inherit;font-size:12px;font-weight:600}
 .mdate button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .mdate button.clr{flex:none;color:var(--ink3)}
+
+/* ============================================================
+   Midnight violet — the shared look across the three trackers.
+   Only the dark theme is restyled; the light one is untouched.
+   ============================================================ */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page1:#150e26; --page2:#0a0613;
+  --glass:rgba(23,16,40,.92);
+  --surface:#171029; --surface2:#1f1636; --field:#120c21;
+  --ink:#f5f2ff; --ink2:#bdb2d8; --ink3:#8b81a8; --muted:#8b81a8;
+  --card:#1b1330; --chip:#251a42; --line:#332552;
+  --grid:#2b1f47; --ring:rgba(168,85,247,.20);
+  --accent:#a855f7; --accent-soft:rgba(168,85,247,.14); --accent-soft2:rgba(168,85,247,.24);
+  --good:#34d399; --warn:#fbbf24; --serious:#fb923c; --critical:#f43f5e;
+  --goodtext:#34d399;
+  --sel:rgba(168,85,247,.22); --selb:#a855f7;
+  --c-dim:#8b81a8;
+  --shadow:0 14px 40px rgba(10,4,26,.66),0 2px 10px rgba(10,4,26,.5);
+  --shadow-focus:0 24px 70px rgba(88,28,135,.55),0 3px 12px rgba(10,4,26,.6);
+}
+
+/* the page itself: a deep violet wash rather than flat grey */
+:root[data-theme="dark"] body{
+  background:
+    radial-gradient(1100px 620px at 12% -10%, rgba(124,58,237,.22), transparent 60%),
+    radial-gradient(900px 520px at 88% 0%,  rgba(168,85,247,.16), transparent 62%),
+    linear-gradient(180deg,var(--page1),var(--page2) 60%);
+  background-attachment:fixed;
+}
+
+/* windows and panels get a violet hairline and a little depth */
+:root[data-theme="dark"] .win{
+  border:1px solid rgba(168,85,247,.18);
+  background:linear-gradient(180deg,rgba(31,22,54,.96),rgba(20,14,38,.97));
+  backdrop-filter:blur(10px);
+}
+:root[data-theme="dark"] .win .wtitle,
+:root[data-theme="dark"] .win .whead{
+  background:linear-gradient(180deg,rgba(45,32,78,.9),rgba(31,22,54,.6));
+  border-bottom:1px solid rgba(168,85,247,.14)}
+:root[data-theme="dark"] .panel{
+  background:linear-gradient(180deg,rgba(34,24,60,.55),rgba(24,17,44,.55));
+  border:1px solid rgba(168,85,247,.14);border-radius:14px}
+:root[data-theme="dark"] .panel h3{color:#c4b5fd;letter-spacing:.09em}
+
+/* the headline tiles, as glowing cards */
+:root[data-theme="dark"] .kpi{
+  background:linear-gradient(180deg,rgba(38,27,68,.75),rgba(24,17,44,.75));
+  border:1px solid rgba(168,85,247,.16);border-radius:14px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+:root[data-theme="dark"] .kpi .k{color:#a99cc9;letter-spacing:.1em}
+:root[data-theme="dark"] .kpi .v{color:#f5f2ff;text-shadow:0 0 22px rgba(168,85,247,.35)}
+
+/* the top bar */
+:root[data-theme="dark"] .topbar{
+  background:linear-gradient(180deg,rgba(30,21,54,.96),rgba(18,12,34,.92));
+  border-bottom:1px solid rgba(168,85,247,.16)}
+:root[data-theme="dark"] .tbbtn{color:var(--ink2)}
+:root[data-theme="dark"] .tbbtn:hover{background:var(--chip);color:#e9d5ff}
+
+/* controls */
+:root[data-theme="dark"] .btn,
+:root[data-theme="dark"] .f,
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea{
+  background:rgba(18,12,33,.85);border-color:#3a2a5e;color:var(--ink)}
+:root[data-theme="dark"] .btn:hover{border-color:var(--accent);color:#e9d5ff}
+:root[data-theme="dark"] .btn.primary,
+:root[data-theme="dark"] button.primary{
+  background:linear-gradient(180deg,#a855f7,#7c3aed);border-color:#8b5cf6;color:#fff;
+  box-shadow:0 6px 18px rgba(124,58,237,.45)}
+:root[data-theme="dark"] .f:focus,
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] select:focus{
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(168,85,247,.22)}
+
+/* the register */
+:root[data-theme="dark"] table.g thead th{
+  background:linear-gradient(180deg,#2a1d4d,#221739);color:#c4b5fd;
+  border-bottom:1px solid rgba(168,85,247,.22)}
+:root[data-theme="dark"] table.g tbody td{background:#171029}
+:root[data-theme="dark"] table.g tbody tr:nth-child(even) td{background:#1c1434}
+:root[data-theme="dark"] table.g tbody tr:hover td{background:#251a42}
+:root[data-theme="dark"] table.g tbody th{background:#1f1636;color:#8b81a8}
+:root[data-theme="dark"] table.g tbody td.stick1{background:#171029}
+:root[data-theme="dark"] table.g tbody tr:nth-child(even) td.stick1{background:#1c1434}
+:root[data-theme="dark"] table.g tbody tr:hover td.stick1{background:#251a42}
+
+/* chips, cards and tags */
+:root[data-theme="dark"] .dcard{
+  background:linear-gradient(180deg,rgba(35,25,62,.9),rgba(23,16,41,.9));
+  border:1px solid rgba(168,85,247,.16)}
+:root[data-theme="dark"] .mfilt button,
+:root[data-theme="dark"] .dayfilt button,
+:root[data-theme="dark"] .dpre button,
+:root[data-theme="dark"] .mdate button{
+  background:rgba(30,21,54,.8);border-color:#3a2a5e;color:var(--ink2)}
+:root[data-theme="dark"] .mfilt button.on,
+:root[data-theme="dark"] .dayfilt button.on,
+:root[data-theme="dark"] .dpre button.on,
+:root[data-theme="dark"] .mdate button.on{
+  background:linear-gradient(180deg,#a855f7,#7c3aed);border-color:#8b5cf6;color:#fff}
+
+/* the sign-in card */
+:root[data-theme="dark"] #login .card,
+:root[data-theme="dark"] #login .box{
+  background:linear-gradient(180deg,rgba(35,25,62,.96),rgba(20,14,38,.98));
+  border:1px solid rgba(168,85,247,.22);
+  box-shadow:0 30px 90px rgba(88,28,135,.5)}
+
+/* scrollbars */
+:root[data-theme="dark"] ::-webkit-scrollbar{width:11px;height:11px}
+:root[data-theme="dark"] ::-webkit-scrollbar-track{background:#120c21}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb{
+  background:#3f2d67;border-radius:8px;border:2px solid #120c21}
+:root[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#5b3fa0}
+
 </style>
 </head>
 <body>
@@ -1099,7 +1218,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v18';
+const BUILD='SNAG 2026-08-17 · v19';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -3540,7 +3659,7 @@ function _oldHistoryHTML(r){
                  list.filter(c=>c.turnaround!=null).length)+' days':''}</div>`;
 }
 async function boot(){
-  try{ if(localStorage.getItem('snag-theme')==='dark')document.documentElement.dataset.theme='dark'; }catch(e){}
+  try{ const th=localStorage.getItem('snag-theme'); document.documentElement.dataset.theme=(th||'dark'); }catch(e){}
   loadPrefs();   /* whatever this browser last had, so there is no flash of the wrong theme */
   const ok=await resumeSession();
   if(ok){
