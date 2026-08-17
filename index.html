@@ -1217,8 +1217,15 @@ const COLBY=Object.fromEntries(COLS.map(c=>[c.k,c]));
 let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
-const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-17 · v19';
+
+/* A date turned into yyyy-mm-dd must use LOCAL parts. toISOString() converts to
+   UTC first, so in Riyadh (UTC+3) local midnight lands on the previous day and
+   every daily figure is filed one day early. */
+const isoDay=d=>{const x=(d instanceof Date)?d:new Date(d);
+  return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+
+         String(x.getDate()).padStart(2,'0');};
+const today=isoDay(new Date());
+const BUILD='SNAG 2026-08-17 · v20';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -2283,12 +2290,12 @@ function hcisGauge(){
    closed_date the moment the status turns Closed, so the count is the
    same whoever made the change and wherever from. */
 let DAYS_BACK=14;
-const dayKey=d=>d.toISOString().slice(0,10);
+const dayKey=d=>isoDay(d);
 /* ---------- filter the register by a date ---------- */
 function openDateFilter(){
   const fields=COLS.filter(c=>c.date);
   const shift=(n)=>{const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+n);
-    return d.toISOString().slice(0,10);};
+    return isoDay(d);};
   const monthStart=today.slice(0,8)+'01';
   const presets=[
     ['Today',           today,      today],
@@ -2333,7 +2340,7 @@ function openDateFilter(){
 function openMobDates(){
   const fields=COLS.filter(c=>c.date);
   const shift=n=>{const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+n);
-    return d.toISOString().slice(0,10);};
+    return isoDay(d);};
   const presets=[['Today',today,today],['Last 7 days',shift(-6),today],
     ['Last 30 days',shift(-29),today],['This month',today.slice(0,8)+'01',today],
     ['Next 7 days',today,shift(6)]];
@@ -2911,9 +2918,9 @@ let PLAN_CUR=null, _planBusy=false;
 const WEEK_DAYS=6;                       /* Sunday to Friday */
 
 const weekStartOf=d=>{const x=new Date(d);x.setDate(x.getDate()-((x.getDay()+1)%7));
-  return x.toISOString().slice(0,10);};
+  return isoDay(x);};
 const weekEndOf=ws=>{const b=new Date(ws);b.setDate(b.getDate()+WEEK_DAYS-1);
-  return b.toISOString().slice(0,10);};
+  return isoDay(b);};
 const weekLabel=ws=>{
   const a=new Date(ws), b=new Date(weekEndOf(ws));
   const f=d=>d.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
@@ -2932,7 +2939,7 @@ function weekOptions(back,fwd){
   const out=[], base=new Date(weekStartOf(today));
   for(let i=-back;i<=fwd;i++){
     const d=new Date(base); d.setDate(d.getDate()+i*7);
-    const ws=d.toISOString().slice(0,10);
+    const ws=isoDay(d);
     const taken=PLANS.find(p=>p.week===ws);
     out.push({ws,label:weekLabel(ws),taken:!!taken,planId:taken?taken.id:null,
       note:i===0?'this week':i===1?'next week':i===-1?'last week'
