@@ -972,6 +972,24 @@ table.daily tr.td-today td{background:var(--chip)}
   border:1px solid var(--accent);border-radius:10px;padding:0 6px;margin-left:5px}
 body.mobile table.daily{font-size:12px}
 body.mobile table.daily th.bar,body.mobile table.daily td.bar{display:none}
+
+/* date filter dialog */
+.dfl label{display:block;font-size:10.5px;font-weight:650;text-transform:uppercase;
+  letter-spacing:.05em;color:var(--ink3);margin:10px 0 4px}
+.dfl .two{display:flex;gap:10px}
+.dfl .two>div{flex:1}
+.dfl .f{width:100%}
+.dpre{display:flex;flex-wrap:wrap;gap:6px}
+.dpre button{border:1px solid var(--line);background:var(--card);color:var(--ink2);
+  border-radius:20px;padding:5px 11px;font:inherit;font-size:11.5px;cursor:pointer}
+.dpre button:hover{border-color:var(--accent)}
+.dpre button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.mdate{padding:0 12px 8px;display:flex;gap:6px}
+.mdate button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink2);
+  border-radius:20px;padding:7px 12px;font:inherit;font-size:12px;font-weight:600}
+.mdate button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.mdate button.clr{flex:none;color:var(--ink3)}
 </style>
 </head>
 <body>
@@ -1081,7 +1099,7 @@ let AB=[], LIVE=false, USER=null, MOBILE=false; let REVS={};
 let PREFS={order:COLS.map(c=>c.k), hidden:COLS.filter(c=>c.off).map(c=>c.k), w:{}, rowh:46, rowhs:{}};
 let NOTIFS=[], ACTS=[], MEMBERS=[];
 const today=new Date().toISOString().slice(0,10);
-const BUILD='SNAG 2026-08-16 · v17';
+const BUILD='SNAG 2026-08-16 · v18';
 const SNAPSHOT=[];
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const canEdit=()=>LIVE&&USER&&USER.role!=='viewer';
@@ -1652,6 +1670,7 @@ let GRID=null; const PICKED=new Set();   /* {win, rows, sel:{r1,c1,r2,c2}, cur:{
 function openRegister(){
   const w=createWindow('reg','Register','NWC handover snags');
   GRID={win:w, sort:{k:'snag_no',dir:1}, q:'', fd:'', fs:'', fx:'', fp:'', fg:'', fv:'',
+    dfield:'closed_date', dfrom:'', dto:'',
         sel:null, cur:{r:0,c:0}, editing:null};
   renderGrid();
   return w;
@@ -1671,6 +1690,12 @@ function gridRows(){
     if(GRID.fx==='late'&&!(isOpen(r)&&r.target_date&&r.target_date<today))return false;
     if(GRID.fx==='none'&&!(isOpen(r)&&!r.assignee))return false;
     if(GRID.fx==='mine'&&!(r.assignee&&USER&&r.assignee===USER.name))return false;
+    if(GRID.dfrom||GRID.dto){
+      const v=r[GRID.dfield]||'';
+      if(!v)return false;                       /* no date recorded, so it cannot be in a range */
+      if(GRID.dfrom&&v<GRID.dfrom)return false;
+      if(GRID.dto&&v>GRID.dto)return false;
+    }
     return true;
   });
   const {k,dir}=GRID.sort, c=COLBY[k];
@@ -1720,6 +1745,10 @@ function renderGrid(){
       listOf('discipline').map(p=>`<option${GRID.fd===p?' selected':''}>${esc(p)}</option>`).join('')}</select>
     <select class="f" id="gfs"><option value="">Open and closed</option>${
       STATUSES.map(k=>`<option${GRID.fs===k?' selected':''}>${esc(k)}</option>`).join('')}</select>
+    <button class="btn" id="gdates"${(GRID.dfrom||GRID.dto)?' style="border-color:var(--accent);color:var(--accent)"':''}>${
+      (GRID.dfrom||GRID.dto)
+        ? (COLBY[GRID.dfield].t+' '+(GRID.dfrom||'…')+' → '+(GRID.dto||'…'))
+        : 'Dates'}</button>
     <select class="f" id="gfx">
       <option value="">Everything</option>
       <option value="open"${GRID.fx==='open'?' selected':''}>Open only</option>
@@ -1761,6 +1790,7 @@ function wireGrid(){
   $('gfs').onchange=e=>{GRID.fs=e.target.value;renderGrid();};
   $('gfp').onchange=e=>{GRID.fp=e.target.value;renderGrid();};
   $('gfx').onchange=e=>{GRID.fx=e.target.value;renderGrid();};
+  $('gdates').onclick=openDateFilter;
   $('gadd').onclick=addRow;
   $('gdel').onclick=deleteSelected;
   $('gplan').onclick=()=>addPickedToPlan();
@@ -2004,7 +2034,8 @@ function drillTo(f){
     mobRender(); return;
   }
   if(!GRID||!WINS.has(GRID.win.id))openRegister();
-  Object.assign(GRID,{q:'',fd:'',fs:'',fx:'',fp:'',fg:'',fv:'',...f});
+  Object.assign(GRID,{q:'',fd:'',fs:'',fx:'',fp:'',fg:'',fv:'',
+    dfield:GRID.dfield||'closed_date',dfrom:'',dto:'',...f});
   renderGrid(); focusWin(GRID.win.id);
   toast('Showing '+([f.fh,f.fd,f.fs,f.fageL].filter(Boolean).join(' · ')||'everything'));
 }
@@ -2134,6 +2165,78 @@ function hcisGauge(){
    same whoever made the change and wherever from. */
 let DAYS_BACK=14;
 const dayKey=d=>d.toISOString().slice(0,10);
+/* ---------- filter the register by a date ---------- */
+function openDateFilter(){
+  const fields=COLS.filter(c=>c.date);
+  const shift=(n)=>{const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+n);
+    return d.toISOString().slice(0,10);};
+  const monthStart=today.slice(0,8)+'01';
+  const presets=[
+    ['Today',           today,      today],
+    ['Yesterday',       shift(-1),  shift(-1)],
+    ['Last 7 days',     shift(-6),  today],
+    ['Last 30 days',    shift(-29), today],
+    ['This month',      monthStart, today],
+    ['Next 7 days',     today,      shift(6)],
+    ['Everything before today','',  shift(-1)],
+    ['From today on',   today,      '']
+  ];
+  const dlg=msgBox('Filter by date','',
+    `<div class="dfl">
+      <label>Which date</label>
+      <select class="f" id="dff">${fields.map(c=>
+        `<option value="${c.k}"${GRID.dfield===c.k?' selected':''}>${esc(c.t)}</option>`).join('')}</select>
+      <div class="two">
+        <div><label>From</label><input class="f" type="date" id="dfa" value="${esc(GRID.dfrom)}"></div>
+        <div><label>To</label><input class="f" type="date" id="dfb" value="${esc(GRID.dto)}"></div>
+      </div>
+      <label>Or pick a period</label>
+      <div class="dpre">${presets.map(([l,a,b])=>
+        `<button data-a="${a}" data-b="${b}">${l}</button>`).join('')}</div>
+      <div class="hint">A snag with no date in that column is left out while a range is set.</div>
+    </div>`,
+    [['Clear the dates',()=>{GRID.dfrom='';GRID.dto='';renderGrid();},''],
+     ['Apply',()=>{
+        GRID.dfield=document.getElementById('dff').value;
+        GRID.dfrom=document.getElementById('dfa').value;
+        GRID.dto=document.getElementById('dfb').value;
+        renderGrid();
+        const n=GRID.rows.length;
+        toast(n+' snag'+(n===1?'':'s')+' in that period');
+      },'primary']]);
+  dlg.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    dlg.querySelector('#dfa').value=b.dataset.a;
+    dlg.querySelector('#dfb').value=b.dataset.b;
+    dlg.querySelectorAll('[data-a]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');});
+}
+
+function openMobDates(){
+  const fields=COLS.filter(c=>c.date);
+  const shift=n=>{const d=new Date(today+'T00:00:00');d.setDate(d.getDate()+n);
+    return d.toISOString().slice(0,10);};
+  const presets=[['Today',today,today],['Last 7 days',shift(-6),today],
+    ['Last 30 days',shift(-29),today],['This month',today.slice(0,8)+'01',today],
+    ['Next 7 days',today,shift(6)]];
+  const dlg=msgBox('Filter by date','',
+    `<div class="dfl"><label>Which date</label>
+      <select class="f" id="dff">${fields.map(c=>
+        `<option value="${c.k}"${(MOB.dfield||'closed_date')===c.k?' selected':''}>${esc(c.t)}</option>`).join('')}</select>
+      <div class="two"><div><label>From</label><input class="f" type="date" id="dfa" value="${esc(MOB.dfrom||'')}"></div>
+      <div><label>To</label><input class="f" type="date" id="dfb" value="${esc(MOB.dto||'')}"></div></div>
+      <label>Or pick a period</label>
+      <div class="dpre">${presets.map(([l,a,b])=>`<button data-a="${a}" data-b="${b}">${l}</button>`).join('')}</div>
+    </div>`,
+    [['Clear',()=>{MOB.dfrom='';MOB.dto='';mobRender();},''],
+     ['Apply',()=>{MOB.dfield=document.getElementById('dff').value;
+       MOB.dfrom=document.getElementById('dfa').value;
+       MOB.dto=document.getElementById('dfb').value; mobRender();},'primary']]);
+  dlg.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+    dlg.querySelector('#dfa').value=b.dataset.a;
+    dlg.querySelector('#dfb').value=b.dataset.b;
+    dlg.querySelectorAll('[data-a]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');});
+}
 function dailyRows(n){
   const out=[], end=new Date(today+'T00:00:00');
   const live=AB.filter(r=>!r.deleted_at);
@@ -3008,6 +3111,12 @@ function mobRows(){
     if(MOB.f==='hcis'&&!(r.hcis&&isOpen(r)))return false;
     if(MOB.f==='none'&&!(isOpen(r)&&!r.assignee))return false;
     if(MOB.f==='closed'&&isOpen(r))return false;
+    if(MOB.dfrom||MOB.dto){
+      const v=r[MOB.dfield||'closed_date']||'';
+      if(!v)return false;
+      if(MOB.dfrom&&v<MOB.dfrom)return false;
+      if(MOB.dto&&v>MOB.dto)return false;
+    }
     if(MOB.fs&&r.status!==MOB.fs)return false;
     if(MOB.fd&&r.discipline!==MOB.fd)return false;
     return true;});
@@ -3032,6 +3141,13 @@ function mobDash(){
     <div class="panel"><h3>By station</h3>${breakdown('station')}</div>
     <div class="panel"><h3>What keeps coming up</h3>${categoryBars()}</div>`;
 }
+function mobDateChip(){
+  const on=MOB.dfrom||MOB.dto;
+  const lab=on?((COLBY[MOB.dfield||'closed_date']||{t:'Date'}).t+' '+(MOB.dfrom||'…')+' → '+(MOB.dto||'…'))
+             :'Filter by date';
+  return `<div class="mdate"><button id="mdf" class="${on?'on':''}">${esc(lab)}</button>${
+    on?'<button id="mdc" class="clr">clear</button>':''}</div>`;
+}
 function mobFilters(){
   const F=[['','All',()=>AB.length],
     ['open','Open',()=>AB.filter(isOpen).length],
@@ -3040,7 +3156,8 @@ function mobFilters(){
     ['none','Unassigned',()=>AB.filter(r=>isOpen(r)&&!r.assignee).length],
     ['closed','Closed',()=>AB.filter(r=>!isOpen(r)).length]];
   return `<div class="mfilt">${F.map(([k,l,n])=>
-    `<button data-mf="${k}" class="${MOB.f===k?'on':''}">${l}<b>${n()}</b></button>`).join('')}</div>`;
+    `<button data-mf="${k}" class="${MOB.f===k?'on':''}">${l}<b>${n()}</b></button>`).join('')}</div>`
+    +mobDateChip();
 }
 
 function mobList(){
@@ -3183,6 +3300,10 @@ function wireMob(){
   const pw=document.getElementById('mpweek');
   if(pw)pw.onchange=async e=>{ PLAN_CUR=+e.target.value;
     if(!PITEMS[PLAN_CUR])await loadPlanItems(PLAN_CUR); mobRender(); };
+  const mdf=document.getElementById('mdf');
+  if(mdf)mdf.onclick=()=>openMobDates();
+  const mdc=document.getElementById('mdc');
+  if(mdc)mdc.onclick=()=>{MOB.dfrom='';MOB.dto='';mobRender();};
   b.querySelectorAll('[data-mf]').forEach(el=>el.onclick=()=>{
     MOB.f=el.dataset.mf;MOB.fs='';MOB.fd='';mobRender();});
   const mp=document.getElementById('mpdf'); if(mp)mp.onclick=exportPDF;
